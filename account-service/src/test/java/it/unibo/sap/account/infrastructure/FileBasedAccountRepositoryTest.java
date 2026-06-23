@@ -29,7 +29,6 @@ class FileBasedAccountRepositoryTest {
         final Account account = Account.register("marco", "Secret#123");
         writer.save(account);
 
-        // A fresh instance loads from the same file (simulates a service restart).
         final FileBasedAccountRepository reader = new FileBasedAccountRepository(file.toString());
         final Optional<Account> reloaded = reader.findByUsername("marco");
 

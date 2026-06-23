@@ -133,6 +133,10 @@ public final class DeliveryServiceTestContext {
         return DELIVERY_PORT;
     }
 
+    public int adminPort() {
+        return ADMIN_PORT;
+    }
+
     public String host() {
         return HOST;
     }

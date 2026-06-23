@@ -2,6 +2,7 @@ package it.unibo.sap.delivery.component.steps;
 
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import it.unibo.sap.delivery.component.DeliveryServiceTestContext;
 
@@ -11,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Black-box steps that drive the delivery-service over HTTP: create a delivery
@@ -24,6 +26,7 @@ public class DeliverySteps {
 
     private int lastStatus;
     private JsonObject lastBody = new JsonObject();
+    private JsonArray lastFleet = new JsonArray();
     private String createdDeliveryId;
 
     @When("I create an immediate delivery of weight {string} kg from {string} to {string} as {string}")
@@ -88,6 +91,62 @@ public class DeliverySteps {
     public void responseStatusWithError(final int status, final String error) {
         assertEquals(status, lastStatus);
         assertEquals(error, lastBody.getString("error"));
+    }
+
+    @When("the admin requests the fleet view")
+    public void adminRequestsFleetView() {
+        final CompletableFuture<JsonArray> done = new CompletableFuture<>();
+        ctx.webClient()
+                .get(ctx.adminPort(), ctx.host(), "/api/v1/admin/fleet")
+                .send(ar -> {
+                    if (ar.succeeded()) {
+                        lastStatus = ar.result().statusCode();
+                        done.complete(safeJsonArray(ar.result().bodyAsString()));
+                    } else {
+                        done.completeExceptionally(ar.cause());
+                    }
+                });
+        try {
+            lastFleet = done.get(10, TimeUnit.SECONDS);
+        } catch (final Exception e) {
+            throw new IllegalStateException("HTTP call to admin fleet view failed", e);
+        }
+    }
+
+    @Then("the fleet view lists {int} drones")
+    public void fleetViewListsDrones(final int count) {
+        assertEquals(200, lastStatus);
+        assertEquals(count, lastFleet.size());
+    }
+
+    @Then("every drone in the fleet view reports a position and a status")
+    public void everyDroneReportsPositionAndStatus() {
+        for (int i = 0; i < lastFleet.size(); i++) {
+            final JsonObject drone = lastFleet.getJsonObject(i);
+            assertNotNull(drone.getString("droneId"), "drone must have an id");
+            assertNotNull(drone.getString("status"), "drone must have a status");
+            assertNotNull(drone.getJsonObject("position"), "drone must report a position");
+        }
+    }
+
+    @Then("all drones in the fleet view are {string}")
+    public void allDronesAre(final String status) {
+        for (int i = 0; i < lastFleet.size(); i++) {
+            assertEquals(status, lastFleet.getJsonObject(i).getString("status"));
+        }
+    }
+
+    @Then("at least one drone is {string} and carrying a package")
+    public void atLeastOneDroneIsCarrying(final String status) {
+        boolean found = false;
+        for (int i = 0; i < lastFleet.size(); i++) {
+            final JsonObject drone = lastFleet.getJsonObject(i);
+            if (status.equals(drone.getString("status")) && Boolean.TRUE.equals(drone.getBoolean("carryingPackage"))) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "expected at least one drone in status " + status + " carrying a package");
     }
 
     private void create(final String weight, final String from, final String to,
@@ -165,6 +224,14 @@ public class DeliverySteps {
             return body == null || body.isBlank() ? new JsonObject() : new JsonObject(body);
         } catch (final RuntimeException e) {
             return new JsonObject();
+        }
+    }
+
+    private static JsonArray safeJsonArray(final String body) {
+        try {
+            return body == null || body.isBlank() ? new JsonArray() : new JsonArray(body);
+        } catch (final RuntimeException e) {
+            return new JsonArray();
         }
     }
 }

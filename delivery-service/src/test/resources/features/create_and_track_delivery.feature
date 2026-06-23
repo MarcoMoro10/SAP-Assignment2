@@ -45,3 +45,16 @@ Feature: Create and track a delivery (component, REST black-box)
   Scenario: Tracking a delivery that does not exist is not found
     When I start tracking delivery "does-not-exist" as "user-1"
     Then the response status is 404 with error "Delivery not found"
+
+  Scenario: Admin views the whole fleet
+    When the admin requests the fleet view
+    Then the fleet view lists 3 drones
+    And every drone in the fleet view reports a position and a status
+    And all drones in the fleet view are "AVAILABLE"
+
+  Scenario: A drone appears in delivery after a delivery starts
+    When I create an immediate delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" as "user-1"
+    Then the delivery is created with status "IN_PROGRESS"
+    When the admin requests the fleet view
+    Then the fleet view lists 3 drones
+    And at least one drone is "IN_DELIVERY" and carrying a package
