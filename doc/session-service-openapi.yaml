@@ -1,0 +1,522 @@
+openapi: 3.0.3
+info:
+  title: "Shipping on the Air — Session Service API"
+  description: |-
+    REST API of the session-service (orchestrator) for the "Shipping on the Air"
+    drone delivery system.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8081/api/v1
+    description: session-service (local prototype)
+
+tags:
+  - name: session
+    description: Login and user-session lifecycle
+  - name: delivery
+    description: Sender delivery commands, routed to the delivery-service
+  - name: admin
+    description: Admin read-only views, routed to the delivery-service
+
+paths:
+
+  /login:
+    post:
+      tags:
+        - session
+      summary: Log in and open a user session
+      description:
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated; user session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Invalid credentials (no session created)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid credentials"
+
+  /user-sessions/{sessionId}/create-delivery:
+    post:
+      tags:
+        - delivery
+      summary: Create a delivery request
+      description:
+      operationId: createDelivery
+      parameters:
+        - name: sessionId
+          in: path
+          description: ID of the active user session
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeliveryRequest'
+      responses:
+        '201':
+          description: Delivery created (status IN_PROGRESS or SCHEDULED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDeliveryResponse'
+        '422':
+          description:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                tooHeavy:
+                  value: { error: "No drone can carry this package" }
+                noDrone:
+                  value: { error: "No drone available" }
+                deadline:
+                  value: { error: "Delivery cannot be completed within the requested time" }
+                horizon:
+                  value: { error: "Shipping time exceeds the maximum scheduling horizon" }
+        '400':
+          description: Malformed request (e.g. invalid address, invalid shipping time)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidAddress:
+                  value: { error: "Invalid address" }
+                invalidTime:
+                  value: { error: "Invalid shipping time" }
+        '404':
+          description: Session not found / not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user-sessions/{sessionId}/cancel-delivery:
+    post:
+      tags:
+        - delivery
+      summary: Cancel a delivery before flight
+      description:
+      operationId: cancelDelivery
+      parameters:
+        - name: sessionId
+          in: path
+          description: ID of the active user session
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deliveryId]
+              properties:
+                deliveryId:
+                  type: string
+                  description: Identifier of the delivery to cancel
+      responses:
+        '200':
+          description: Delivery cancelled (status CANCELLED)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveryId:
+                    type: string
+                  status:
+                    $ref: '#/components/schemas/DeliveryStatus'
+        '409':
+          description: Delivery cannot be cancelled once in flight (remains IN_PROGRESS)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Delivery cannot be cancelled once in flight"
+        '404':
+          description: Delivery not found (unknown, or owned by another user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Delivery not found"
+
+  /user-sessions/{sessionId}/track-delivery:
+    post:
+      tags:
+        - delivery
+      summary: Start tracking a delivery
+      description:
+      operationId: trackDelivery
+      parameters:
+        - name: sessionId
+          in: path
+          description: ID of the active user session
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deliveryId]
+              properties:
+                deliveryId:
+                  type: string
+                  description: Identifier of the delivery to track
+      responses:
+        '200':
+          description: Tracking session started; WebSocket handle returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingHandle'
+        '404':
+          description: Delivery not found (unknown, or owned by another user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Delivery not found"
+
+  /user-sessions/{sessionId}/deliveries/{deliveryId}:
+    get:
+      tags:
+        - delivery
+      summary: Query a delivery's current state
+      description:
+      operationId: getDelivery
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: deliveryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+        '404':
+          description: Delivery not found (unknown, or owned by another user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user-sessions/{sessionId}/admin/fleet:
+    get:
+      tags:
+        - admin
+      summary: View the fleet monitoring view
+      description: |-
+      operationId: viewFleet
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current fleet monitoring view
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FleetDroneView'
+        '403':
+          description: Not an admin session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user-sessions/{sessionId}/admin/scheduling:
+    get:
+      tags:
+        - admin
+      summary: View scheduled deliveries
+      description:
+      operationId: viewScheduling
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: droneId
+          in: query
+          description: Optional filter for a single drone's daily plan
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scheduled deliveries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduledDeliveryView'
+        '403':
+          description: Not an admin session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+
+    Role:
+      type: string
+      enum:
+        - SENDER
+        - ADMIN
+
+    DeliveryStatus:
+      type: string
+      description:
+      enum:
+        - REQUESTED
+        - SCHEDULED
+        - ASSIGNED
+        - IN_PROGRESS
+        - DELIVERED
+        - REJECTED
+        - CANCELLED
+        - ABOLISHED
+
+    DroneStatus:
+      type: string
+      description:
+      enum:
+        - AVAILABLE
+        - RESERVED
+        - ASSIGNED
+        - IN_DELIVERY
+        - ARRIVED
+        - OUT_OF_SERVICE
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "user-1"
+        password:
+          type: string
+          format: password
+          example: "Secret#123"
+
+    SessionResponse:
+      type: object
+      description:
+      properties:
+        sessionId:
+          type: string
+          description: Identifier of the created (temporary) user session
+        accountId:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        links:
+          type: object
+          description: |-
+            Role-appropriate next actions. For SENDER: createDeliveryLink,
+            trackDeliveryLink. For ADMIN: fleetLink, schedulingLink.
+          properties:
+            createDeliveryLink:
+              type: string
+            trackDeliveryLink:
+              type: string
+            fleetLink:
+              type: string
+            schedulingLink:
+              type: string
+
+    Place:
+      type: object
+      description: An address-bearing place.
+      required:
+        - street
+        - number
+      properties:
+        street:
+          type: string
+          example: "via Emilia"
+        number:
+          type: integer
+          example: 9
+
+    CreateDeliveryRequest:
+      type: object
+      required:
+        - weight
+        - startingPlace
+        - destinationPlace
+      properties:
+        weight:
+          type: number
+          description: Package weight in kilograms
+          example: 2
+        startingPlace:
+          $ref: '#/components/schemas/Place'
+        destinationPlace:
+          $ref: '#/components/schemas/Place'
+        immediate:
+          type: boolean
+          description: |-
+            true for an immediate delivery; false (or omitted with a
+            scheduledAt) for a scheduled delivery.
+          default: true
+        scheduledAt:
+          type: string
+          format: date-time
+          description:
+          example: "2026-06-10T10:00:00+02:00"
+        deadlineMinutes:
+          type: integer
+          description: |-
+            Optional maximum elapsed time (deadline) within which the delivery
+            must complete, expressed in minutes.
+          example: 30
+
+    CreateDeliveryResponse:
+      type: object
+      properties:
+        deliveryId:
+          type: string
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        links:
+          type: object
+          properties:
+            deliveryLink:
+              type: string
+            trackDeliveryLink:
+              type: string
+
+    TrackingHandle:
+      type: object
+      description:
+      properties:
+        trackingSessionId:
+          type: string
+        deliveryId:
+          type: string
+        webSocketUrl:
+          type: string
+          description: WebSocket URL on the delivery-service for the live stream
+          example: "ws://localhost:8082/api/v1/track/{trackingSessionId}"
+
+    Delivery:
+      type: object
+      description: Observable view of a delivery.
+      properties:
+        deliveryId:
+          type: string
+        weight:
+          type: number
+        startingPlace:
+          $ref: '#/components/schemas/Place'
+        destinationPlace:
+          $ref: '#/components/schemas/Place'
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        estimatedTimeRemainingSeconds:
+          type: integer
+          description: |-
+            Estimated time remaining before completion, in seconds; 0 once
+            delivered. Present while IN_PROGRESS.
+
+    FleetDroneView:
+      type: object
+      description: One drone as seen in the fleet monitoring view.
+      properties:
+        droneId:
+          type: string
+        status:
+          $ref: '#/components/schemas/DroneStatus'
+        position:
+          type: object
+          properties:
+            latitude:
+              type: number
+            longitude:
+              type: number
+        carryingPackage:
+          type: boolean
+
+    ScheduledDeliveryView:
+      type: object
+      description: One scheduled delivery as seen in the scheduling view.
+      properties:
+        droneId:
+          type: string
+        deliveryId:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string

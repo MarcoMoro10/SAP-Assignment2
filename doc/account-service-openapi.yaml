@@ -1,0 +1,228 @@
+openapi: 3.0.3
+info:
+  title: "Shipping on the Air — Account Service API"
+  description: |-
+    REST API of the account-service (Users Context) for the
+    "Shipping on the Air" drone delivery system.
+
+    This service is the sole owner of credential data. It does NOT know about
+    deliveries or drones, and it does NOT manage user sessions (sessions belong
+    to the session-service). Therefore login returns only authentication data
+    (accountId + role), with no links to delivery/tracking resources.
+
+    The Admin account is pre-loaded at start-up: it is not created via
+    public registration and can only log in. There is no admin-registration
+    endpoint and no role-promotion logic.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: account-service
+
+tags:
+  - name: account
+    description: Account registration, retrieval and authentication (Users Context)
+
+paths:
+
+  /accounts:
+    post:
+      tags:
+        - account
+      summary: Register a new Sender account
+      description: |-
+        Public registration. Creates a new account with role SENDER.
+      operationId: registerAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '201':
+          description: Account successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          description: Invalid request (e.g. missing or malformed username/password)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Username already taken (the account is not created)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Username already taken"
+
+  /accounts/{accountId}:
+    get:
+      tags:
+        - account
+      summary: Get account info
+      description: |-
+        Returns public account information. The password is never returned.
+      operationId: getAccountInfo
+      parameters:
+        - name: accountId
+          in: path
+          description: ID of the account to retrieve
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /accounts/login:
+    post:
+      tags:
+        - account
+      summary: Authenticate an account by username (Sender or Admin)
+      description:
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Credentials verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials (account not authenticated)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid credentials"
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+
+    Role:
+      type: string
+      description: |-
+        Account role. Public registration produces SENDER only;
+        ADMIN exists solely as a pre-loaded seed account.
+      enum:
+        - SENDER
+        - ADMIN
+
+    RegistrationRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Desired unique username
+          example: "user-1"
+        password:
+          type: string
+          format: password
+          description: Account password (write-only, never returned)
+          example: "Secret#123"
+
+    RegistrationResponse:
+      type: object
+      properties:
+        accountId:
+          type: string
+          description: Identifier of the newly created account
+        username:
+          type: string
+          description: Registered username
+        role:
+          $ref: '#/components/schemas/Role'
+        loginLink:
+          type: string
+          description: Link to the login resource for this account
+          example: "/api/v1/accounts/{accountId}/login"
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Username of the account to authenticate
+          example: "user-1"
+        password:
+          type: string
+          format: password
+          description: Account password
+          example: "Secret#123"
+
+    LoginResponse:
+      type: object
+      description: |-
+        Authentication outcome. Contains only identity + role.
+      properties:
+        accountId:
+          type: string
+          description: Authenticated account identifier
+        username:
+          type: string
+          description: Authenticated username
+        role:
+          $ref: '#/components/schemas/Role'
+
+    Account:
+      type: object
+      description: Public view of an account.
+      properties:
+        accountId:
+          type: string
+          description: Account identifier (unique)
+        username:
+          type: string
+          description: Username
+        role:
+          $ref: '#/components/schemas/Role'
+        whenCreated:
+          type: integer
+          format: int64
+          description: Creation timestamp (epoch millis)
+
+    Error:
+      type: object
+      description: Standard error payload.
+      properties:
+        error:
+          type: string
+          description: Human-readable error message

@@ -1,0 +1,458 @@
+openapi: 3.0.3
+info:
+  title: "Shipping on the Air — Delivery Service API"
+  description: |-
+    REST (and WebSocket) API of the delivery-service for the "Shipping on the
+    Air" drone delivery system.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8082/api/v1
+    description: delivery-service (local prototype)
+
+tags:
+  - name: delivery
+    description: Delivery lifecycle (create, query, cancel)
+  - name: tracking
+    description: Tracking command
+  - name: admin-fleet
+    description: Fleet monitoring view (internal Fleet module, read-only)
+  - name: admin-scheduling
+    description: Delivery scheduling view (read-only; scheduling is automatic)
+
+paths:
+
+  /deliveries:
+    post:
+      tags:
+        - delivery
+      summary: Create and validate a delivery request
+      description:
+      operationId: createDelivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeliveryRequest'
+      responses:
+        '201':
+          description: Delivery created (IN_PROGRESS for immediate, SCHEDULED for scheduled)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDeliveryResponse'
+        '422':
+          description: |-
+            Validation failed (status REJECTED). One confluent reason is
+            returned regardless of which check failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                tooHeavy:
+                  value: { error: "No drone can carry this package" }
+                noDrone:
+                  value: { error: "No drone available" }
+                deadline:
+                  value: { error: "Delivery cannot be completed within the requested time" }
+                horizon:
+                  value: { error: "Shipping time exceeds the maximum scheduling horizon" }
+                noSlot:
+                  value: { error: "No drone available for the requested time" }
+        '400':
+          description: Malformed request (invalid address, invalid/past shipping time)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidAddress:
+                  value: { error: "Invalid address" }
+                invalidTime:
+                  value: { error: "Invalid shipping time" }
+
+  /deliveries/{deliveryId}:
+    get:
+      tags:
+        - delivery
+      summary: Get the current observable state of a delivery
+      description:
+      operationId: getDelivery
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: senderId
+          in: query
+          description: Owner of the delivery, for the ownership check
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+        '404':
+          description: Delivery not found (unknown, or owned by another sender)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Delivery not found"
+
+  /deliveries/{deliveryId}/cancel:
+    post:
+      tags:
+        - delivery
+      summary: Cancel a delivery before flight
+      description:
+      operationId: cancelDelivery
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senderId]
+              properties:
+                senderId:
+                  type: string
+                  description: Owner of the delivery, for the ownership check
+      responses:
+        '200':
+          description: Delivery cancelled (status CANCELLED); reservation released
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveryId:
+                    type: string
+                  status:
+                    $ref: '#/components/schemas/DeliveryStatus'
+        '409':
+          description: Delivery cannot be cancelled once in flight (remains IN_PROGRESS)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Delivery cannot be cancelled once in flight"
+        '404':
+          description: Delivery not found (unknown, or owned by another sender)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Delivery not found"
+
+  /deliveries/{deliveryId}/track:
+    post:
+      tags:
+        - tracking
+      summary: Start tracking
+      description:
+      operationId: startTracking
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senderId]
+              properties:
+                senderId:
+                  type: string
+                  description: Owner of the delivery, for the ownership check
+      responses:
+        '201':
+          description: TrackingSession created; WebSocket handle returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingHandle'
+        '404':
+          description: Delivery not found (unknown, or owned by another sender)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Delivery not found"
+
+  /track/{trackingSessionId}:
+    get:
+      tags:
+        - tracking
+      summary: "Live tracking stream "
+      description:
+      operationId: trackingStream
+      parameters:
+        - name: trackingSessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingUpdate'
+        '404':
+          description: Tracking session not found or already closed
+
+  /admin/fleet:
+    get:
+      tags:
+        - admin-fleet
+      summary: Fleet monitoring view
+      description:
+      operationId: viewFleet
+      responses:
+        '200':
+          description: Current state of the whole fleet
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FleetDroneView'
+
+  /admin/scheduling:
+    get:
+      tags:
+        - admin-scheduling
+      summary: Delivery scheduling view
+      description:
+      operationId: viewScheduling
+      parameters:
+        - name: droneId
+          in: query
+          description: Optional filter for a single drone's daily plan
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scheduled deliveries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduledDeliveryView'
+
+components:
+  schemas:
+
+    DeliveryStatus:
+      type: string
+      description:
+      enum:
+        - REQUESTED
+        - SCHEDULED
+        - ASSIGNED
+        - IN_PROGRESS
+        - DELIVERED
+        - REJECTED
+        - CANCELLED
+        - ABOLISHED
+
+    DroneStatus:
+      type: string
+      description:
+      enum:
+        - AVAILABLE
+        - RESERVED
+        - ASSIGNED
+        - IN_DELIVERY
+        - ARRIVED
+        - OUT_OF_SERVICE
+
+    Place:
+      type: object
+      description: An address-bearing place (Location in the Deliveries Context).
+      required:
+        - street
+        - number
+      properties:
+        street:
+          type: string
+          example: "via Emilia"
+        number:
+          type: integer
+          example: 9
+
+    Coordinates:
+      type: object
+      description:
+      properties:
+        latitude:
+          type: number
+          example: 44.50
+        longitude:
+          type: number
+          example: 11.35
+
+    CreateDeliveryRequest:
+      type: object
+      required:
+        - senderId
+        - weight
+        - startingPlace
+        - destinationPlace
+      properties:
+        senderId:
+          type: string
+          description: Identifier of the owning Sender (coined in the Users Context)
+        weight:
+          type: number
+          description: Package weight in kilograms
+          example: 2
+        startingPlace:
+          $ref: '#/components/schemas/Place'
+        destinationPlace:
+          $ref: '#/components/schemas/Place'
+        immediate:
+          type: boolean
+          description: |-
+            true for an immediate delivery; false for a scheduled delivery
+            (in which case scheduledAt is required).
+          default: true
+        scheduledAt:
+          type: string
+          format: date-time
+          description: |-
+            Requested date/time for a scheduled delivery.
+            Required when immediate is false; ignored when immediate is true.
+          example: "2026-06-10T10:00:00+02:00"
+        deadlineMinutes:
+          type: integer
+          description: |-
+            Optional maximum elapsed time (deadline) within which the delivery
+            must complete, in minutes.
+          example: 30
+
+    CreateDeliveryResponse:
+      type: object
+      properties:
+        deliveryId:
+          type: string
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        assignedDroneId:
+          type: string
+          description: Drone assigned (immediate) or reserved (scheduled), if any
+        links:
+          type: object
+          properties:
+            deliveryLink:
+              type: string
+            trackLink:
+              type: string
+
+    Delivery:
+      type: object
+      properties:
+        deliveryId:
+          type: string
+        senderId:
+          type: string
+        weight:
+          type: number
+        startingPlace:
+          $ref: '#/components/schemas/Place'
+        destinationPlace:
+          $ref: '#/components/schemas/Place'
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        estimatedTimeRemainingSeconds:
+          type: integer
+          description: Estimated time remaining in seconds; 0 once DELIVERED.
+
+    TrackingHandle:
+      type: object
+      description: |-
+        Returned by the track command. webSocketUrl is the channel the client
+        opens to receive the live stream.
+      properties:
+        trackingSessionId:
+          type: string
+        deliveryId:
+          type: string
+        webSocketUrl:
+          type: string
+          example: "ws://localhost:8082/api/v1/track/{trackingSessionId}"
+
+    TrackingUpdate:
+      type: object
+      description: |-
+        Shape of a message pushed on the tracking WebSocket.
+        Emitted whenever the tracked delivery's position/ETR changes.
+      properties:
+        deliveryId:
+          type: string
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        position:
+          $ref: '#/components/schemas/Coordinates'
+        estimatedTimeRemainingSeconds:
+          type: integer
+          description: 0 when the delivery is DELIVERED.
+
+    FleetDroneView:
+      type: object
+      properties:
+        droneId:
+          type: string
+        status:
+          $ref: '#/components/schemas/DroneStatus'
+        position:
+          $ref: '#/components/schemas/Coordinates'
+        carryingPackage:
+          type: boolean
+
+    ScheduledDeliveryView:
+      type: object
+      properties:
+        droneId:
+          type: string
+        deliveryId:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
