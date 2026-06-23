@@ -23,6 +23,15 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- Align ALL Jackson modules to one version: Vert.x pulls jackson-core 2.16.1
+           transitively, incompatible with jackson-databind 2.18.2 (breaks JSON number decoding). -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${jackson.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
