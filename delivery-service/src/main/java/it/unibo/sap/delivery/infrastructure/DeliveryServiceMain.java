@@ -16,12 +16,15 @@ import it.unibo.sap.delivery.infrastructure.fleet.InMemoryDroneRepository;
 
 public class DeliveryServiceMain {
 
-    static final int DELIVERY_SERVICE_PORT = 9002;
-    static final int ADMIN_PORT = 9003;
+    static final int DEFAULT_DELIVERY_SERVICE_PORT = 9002;
+    static final int DEFAULT_ADMIN_PORT = 9003;
 
     static final double DRONE_SPEED_UNITS_PER_SECOND = 0.01;
 
     public static void main(final String[] args) {
+        final int deliveryPort = Env.getInt("DELIVERY_PORT", DEFAULT_DELIVERY_SERVICE_PORT);
+        final int adminPort = Env.getInt("FLEET_PORT", DEFAULT_ADMIN_PORT);
+
         final Vertx vertx = Vertx.vertx();
 
         final EventStore eventStore = new FileBasedEventStore();
@@ -44,8 +47,8 @@ public class DeliveryServiceMain {
 
         FleetSeeder.seed(droneRepository);
 
-        vertx.deployVerticle(new DeliveryServiceController(deliveryService, DELIVERY_SERVICE_PORT));
-        vertx.deployVerticle(new FleetMonitoringController(deliveryService, ADMIN_PORT));
+        vertx.deployVerticle(new DeliveryServiceController(deliveryService, deliveryPort));
+        vertx.deployVerticle(new FleetMonitoringController(deliveryService, adminPort));
         vertx.deployVerticle(new VertxSchedulerVerticle(deliveryService));
     }
 }

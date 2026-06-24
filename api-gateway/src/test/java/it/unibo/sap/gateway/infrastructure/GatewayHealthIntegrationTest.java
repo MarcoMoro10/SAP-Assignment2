@@ -80,7 +80,7 @@ class GatewayHealthIntegrationTest {
                 new DeliveryServiceProxy(gatewayClient, HOST, DELIVERY_STUB_PORT, DELIVERY_STUB_PORT);
         final SessionService service = new SessionServiceImpl(
                 new FakeAccountService(), deliveryProxy, new InMemorySessionRepository());
-        final var controller = new APIGatewayController(service, accountProxy, deliveryProxy, GATEWAY_PORT);
+        final var controller = new APIGatewayController(service, accountProxy, deliveryProxy, HOST, GATEWAY_PORT);
 
         final CountDownLatch latch = new CountDownLatch(1);
         vertx.deployVerticle(controller).onComplete(ar -> latch.countDown());

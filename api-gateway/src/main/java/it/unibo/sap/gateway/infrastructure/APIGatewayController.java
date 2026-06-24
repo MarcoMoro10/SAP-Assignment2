@@ -24,16 +24,19 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
     private final SessionService sessionService;
     private final AccountServiceProxy accountServiceProxy;
     private final DeliveryServiceProxy deliveryServiceProxy;
+    private final String publicHost;
     private final int port;
     private WebSocketClient webSocketClient;
 
     public APIGatewayController(final SessionService sessionService,
                                 final AccountServiceProxy accountServiceProxy,
                                 final DeliveryServiceProxy deliveryServiceProxy,
+                                final String publicHost,
                                 final int port) {
         this.sessionService = sessionService;
         this.accountServiceProxy = accountServiceProxy;
         this.deliveryServiceProxy = deliveryServiceProxy;
+        this.publicHost = publicHost;
         this.port = port;
     }
 
@@ -162,7 +165,7 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
     private JsonObject rewriteTrackingUrl(final JsonObject deliveryResponse) {
         final String trackingSessionId = deliveryResponse.getString("trackingSessionId");
         return deliveryResponse.copy()
-                .put("webSocketUrl", "ws://localhost:" + port + TRACK_PREFIX + trackingSessionId);
+                .put("webSocketUrl", "ws://" + publicHost + ":" + port + TRACK_PREFIX + trackingSessionId);
     }
 
     private void handleGetDelivery(final RoutingContext ctx) {
