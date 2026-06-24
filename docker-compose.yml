@@ -1,0 +1,59 @@
+services:
+  account-service:
+    build:
+      context: ./account-service
+    image: account-service
+    container_name: account-service
+    networks: [shipping_network]
+    ports:
+      - "9000:9000"
+    restart: always
+
+  delivery-service:
+    build:
+      context: ./delivery-service
+    image: delivery-service
+    container_name: delivery-service
+    networks: [shipping_network]
+    ports:
+      - "9002:9002"
+      - "9003:9003"
+    restart: always
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    image: api-gateway
+    container_name: api-gateway
+    networks: [shipping_network]
+    ports:
+      - "8080:8080"
+    environment:
+      - ACCOUNT_HOST=account-service
+      - DELIVERY_HOST=delivery-service
+    depends_on:
+      - account-service
+      - delivery-service
+    healthcheck:
+      test: curl --fail http://api-gateway:8080/api/v1/health || exit 1
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "autoheal=true"
+    restart: always
+
+  autoheal:
+    image: willfarrell/autoheal:1.1.0
+    container_name: autoheal
+    networks: [shipping_network]
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+networks:
+  shipping_network:
+    driver: bridge

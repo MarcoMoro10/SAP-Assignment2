@@ -34,10 +34,41 @@ cd account-service
 mvn package
 ```
 
-Avvio dell'intero sistema (dopo aver implementato i Dockerfile e il compose — STEP 9):
+### Run with Docker
+
+Un solo comando builda le immagini e avvia l'intero sistema (rete condivisa + Service Discovery
+via DNS Docker + healthcheck/autoheal):
 ```
 docker compose up --build
 ```
+
+Porte esposte sull'host:
+
+| Servizio | URL |
+|---|---|
+| api-gateway (unico entrypoint client) | http://localhost:8080 |
+| account-service | http://localhost:9000 |
+| delivery-service (delivery + admin/fleet) | http://localhost:9002 · http://localhost:9003 |
+
+Verifica rapida dopo l'avvio:
+```
+curl http://localhost:8080/api/v1/health
+```
+
+Spegnere il sistema:
+```
+docker compose down
+```
+
+**Service Discovery.** Il gateway raggiunge i servizi a valle tramite i loro **nomi logici**
+(`account-service`, `delivery-service`) risolti dal DNS interno di Docker: nel compose vengono
+passati come `ACCOUNT_HOST` / `DELIVERY_HOST`, senza modificare il codice (gli host/porte sono
+configurabili via env, default `localhost`).
+
+**Dati effimeri.** Non sono montati volumi per `data/`: l'event store delle delivery e il
+repository degli account ripartono **puliti** a ogni `docker compose up`. Il sistema resta comunque
+funzionante perché all'avvio `AdminSeeder` semina l'account Admin e `FleetSeeder` semina i droni.
+Le delivery create non sopravvivono a un `docker compose down`.
 
 ## Testing
 
