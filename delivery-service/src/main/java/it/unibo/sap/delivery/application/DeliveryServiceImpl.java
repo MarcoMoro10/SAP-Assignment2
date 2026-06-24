@@ -35,15 +35,26 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final FleetPort fleetPort;
     private final GeocodingPort geocodingPort;
     private final TrackingSessionRegistry trackingSessions;
+    private final DeliveryServiceEventObserver metricsObserver;
 
     public DeliveryServiceImpl(final DeliveryRepository deliveryRepository,
                                final FleetPort fleetPort,
                                final GeocodingPort geocodingPort,
                                final TrackingSessionRegistry trackingSessions) {
+        this(deliveryRepository, fleetPort, geocodingPort, trackingSessions,
+                DeliveryServiceEventObserver.NO_OP);
+    }
+
+    public DeliveryServiceImpl(final DeliveryRepository deliveryRepository,
+                               final FleetPort fleetPort,
+                               final GeocodingPort geocodingPort,
+                               final TrackingSessionRegistry trackingSessions,
+                               final DeliveryServiceEventObserver metricsObserver) {
         this.deliveryRepository = deliveryRepository;
         this.fleetPort = fleetPort;
         this.geocodingPort = geocodingPort;
         this.trackingSessions = trackingSessions;
+        this.metricsObserver = metricsObserver;
     }
 
     @Override
@@ -81,6 +92,10 @@ public class DeliveryServiceImpl implements DeliveryService {
 
         deliveryRepository.save(delivery);
         delivery.clearDomainEvents();
+        metricsObserver.onDeliveryCreated();
+        if (delivery.getStatus() == DeliveryStatus.IN_PROGRESS) {
+            metricsObserver.onDeliveryInProgress();
+        }
         return result;
     }
 
@@ -173,6 +188,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                 fleetPort.startDelivery(droneId);
                 deliveryRepository.save(d);
                 d.clearDomainEvents();
+                metricsObserver.onDeliveryInProgress();
             }
         }
     }

@@ -17,17 +17,29 @@ public class DroneEventHandler {
     private final TrackingSessionEventObserver trackingObserver;
     private final FleetPort fleetPort;
     private final double droneSpeedUnitsPerSecond;
+    private final DeliveryServiceEventObserver metricsObserver;
 
     public DroneEventHandler(final DeliveryRepository deliveryRepository,
                              final TrackingSessionRegistry trackingSessions,
                              final TrackingSessionEventObserver trackingObserver,
                              final FleetPort fleetPort,
                              final double droneSpeedUnitsPerSecond) {
+        this(deliveryRepository, trackingSessions, trackingObserver, fleetPort, droneSpeedUnitsPerSecond,
+                DeliveryServiceEventObserver.NO_OP);
+    }
+
+    public DroneEventHandler(final DeliveryRepository deliveryRepository,
+                             final TrackingSessionRegistry trackingSessions,
+                             final TrackingSessionEventObserver trackingObserver,
+                             final FleetPort fleetPort,
+                             final double droneSpeedUnitsPerSecond,
+                             final DeliveryServiceEventObserver metricsObserver) {
         this.deliveryRepository = deliveryRepository;
         this.trackingSessions = trackingSessions;
         this.trackingObserver = trackingObserver;
         this.fleetPort = fleetPort;
         this.droneSpeedUnitsPerSecond = droneSpeedUnitsPerSecond;
+        this.metricsObserver = metricsObserver;
     }
 
     public void onDronePositionUpdated(final String deliveryId, final double latitude, final double longitude) {
@@ -62,6 +74,7 @@ public class DroneEventHandler {
         delivery.complete();
         deliveryRepository.save(delivery);
         delivery.clearDomainEvents();
+        metricsObserver.onDeliveryCompleted();
 
         fleetPort.completeDelivery(deliveryId);
 

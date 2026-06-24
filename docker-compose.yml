@@ -18,6 +18,7 @@ services:
     ports:
       - "9002:9002"
       - "9003:9003"
+      - "9400:9400"
     restart: always
 
   api-gateway:
@@ -28,6 +29,7 @@ services:
     networks: [shipping_network]
     ports:
       - "8080:8080"
+      - "9401:9401"
     environment:
       - ACCOUNT_HOST=account-service
       - DELIVERY_HOST=delivery-service
@@ -53,6 +55,19 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    networks: [shipping_network]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - delivery-service
+      - api-gateway
+    restart: always
 
 networks:
   shipping_network:

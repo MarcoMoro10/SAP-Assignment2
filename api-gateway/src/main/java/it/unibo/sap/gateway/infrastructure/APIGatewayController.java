@@ -11,6 +11,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import it.unibo.sap.common.hexagonal.InputAdapter;
+import it.unibo.sap.gateway.application.ControllerObserver;
 import it.unibo.sap.gateway.application.SessionService;
 import it.unibo.sap.gateway.domain.Session;
 import it.unibo.sap.gateway.domain.SessionId;
@@ -26,6 +27,7 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
     private final DeliveryServiceProxy deliveryServiceProxy;
     private final String publicHost;
     private final int port;
+    private final ControllerObserver observer;
     private WebSocketClient webSocketClient;
 
     public APIGatewayController(final SessionService sessionService,
@@ -33,17 +35,29 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
                                 final DeliveryServiceProxy deliveryServiceProxy,
                                 final String publicHost,
                                 final int port) {
+        this(sessionService, accountServiceProxy, deliveryServiceProxy, publicHost, port,
+                ControllerObserver.NO_OP);
+    }
+
+    public APIGatewayController(final SessionService sessionService,
+                                final AccountServiceProxy accountServiceProxy,
+                                final DeliveryServiceProxy deliveryServiceProxy,
+                                final String publicHost,
+                                final int port,
+                                final ControllerObserver observer) {
         this.sessionService = sessionService;
         this.accountServiceProxy = accountServiceProxy;
         this.deliveryServiceProxy = deliveryServiceProxy;
         this.publicHost = publicHost;
         this.port = port;
+        this.observer = observer;
     }
 
     @Override
     public void start(final Promise<Void> startPromise) {
         final Router router = Router.router(vertx);
         router.route("/api/v1/*").handler(BodyHandler.create());
+        router.route("/api/v1/*").handler(this::observeRequest);
         router.get("/api/v1/health").handler(this::handleHealth);
         router.post("/api/v1/login").handler(this::handleLogin);
         router.post("/api/v1/user-sessions/:sessionId/create-delivery").handler(this::handleCreateDelivery);
@@ -67,6 +81,13 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
                         startPromise.fail(http.cause());
                     }
                 });
+    }
+
+    private void observeRequest(final RoutingContext ctx) {
+        observer.notifyNewRESTRequest();
+        final long startNanos = System.nanoTime();
+        ctx.addEndHandler(ar -> observer.recordResponseTime((System.nanoTime() - startNanos) / 1_000_000_000.0));
+        ctx.next();
     }
 
     private void handleHealth(final RoutingContext ctx) {
