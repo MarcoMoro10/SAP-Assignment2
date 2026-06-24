@@ -1,5 +1,6 @@
 package it.unibo.sap.gateway.infrastructure;
 
+import io.vertx.core.Vertx;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.json.JsonObject;
@@ -89,7 +90,10 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
                 resp -> new JsonObject().put("scheduling", resp.bodyAsJsonArray()));
     }
 
-    public void openTrackingRelay(final WebSocketClient wsClient,
+    private static final long CLIENT_CLOSE_GRACE_MS = 200;
+
+    public void openTrackingRelay(final Vertx vertx,
+                                  final WebSocketClient wsClient,
                                   final ServerWebSocket clientSocket,
                                   final String trackingSessionId,
                                   final String firstFrame) {
@@ -99,7 +103,7 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
                     deliverySocket.textMessageHandler(clientSocket::writeTextMessage);
                     clientSocket.textMessageHandler(deliverySocket::writeTextMessage);
                     clientSocket.closeHandler(v -> deliverySocket.close());
-                    deliverySocket.closeHandler(v -> clientSocket.close());
+                    deliverySocket.closeHandler(v -> vertx.setTimer(CLIENT_CLOSE_GRACE_MS, id -> clientSocket.close()));
                 })
                 .onFailure(err -> clientSocket.close());
     }

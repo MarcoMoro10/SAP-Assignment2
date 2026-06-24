@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,6 +39,7 @@ class TrackingRelayIntegrationTest {
     private static final int GATEWAY_PORT = 9405;
     private static final String TRACKING_SESSION_ID = "TRK-1";
     private static final String DELIVERY_ID = "DLV-9";
+    private static final String FINAL_FRAME_DELIVERY_ID = "DLV-FINAL";
 
     private static Vertx vertx;
     private static WebClient webClient;
@@ -79,6 +81,13 @@ class TrackingRelayIntegrationTest {
             }
             ws.textMessageHandler(openFrame -> {
                 final String forwardedDeliveryId = new JsonObject(openFrame).getString("deliveryId");
+                if (FINAL_FRAME_DELIVERY_ID.equals(forwardedDeliveryId)) {
+                    ws.writeTextMessage(new JsonObject()
+                            .put("deliveryId", forwardedDeliveryId)
+                            .put("status", "DELIVERED")
+                            .put("estimatedTimeRemainingSeconds", 0).encode(), ar -> ws.close());
+                    return;
+                }
                 ws.writeTextMessage(new JsonObject()
                         .put("deliveryId", forwardedDeliveryId).put("etrSeconds", 120).encode());
                 ws.writeTextMessage(new JsonObject()
@@ -124,6 +133,29 @@ class TrackingRelayIntegrationTest {
         assertEquals(2, received.size());
         assertTrue(received.get(0).contains("etrSeconds"), "the relayed frame should carry the delivery update");
         assertTrue(received.get(0).contains(DELIVERY_ID), "the open frame must have been forwarded downstream");
+    }
+
+    @Test
+    void finalDeliveredFrameIsRelayedToTheClientEvenWhenTheDeliveryLegClosesRightAfter() throws Exception {
+        final WebSocketClient client = vertx.createWebSocketClient();
+        final AtomicReference<String> deliveredFrame = new AtomicReference<>();
+        final CountDownLatch gotDelivered = new CountDownLatch(1);
+
+        client.connect(GATEWAY_PORT, HOST, "/api/v1/track/" + TRACKING_SESSION_ID)
+                .onSuccess(ws -> {
+                    ws.textMessageHandler(msg -> {
+                        if (msg.contains("DELIVERED")) {
+                            deliveredFrame.set(msg);
+                            gotDelivered.countDown();
+                        }
+                    });
+                    ws.writeTextMessage(new JsonObject().put("deliveryId", FINAL_FRAME_DELIVERY_ID).encode());
+                });
+
+        assertTrue(gotDelivered.await(15, TimeUnit.SECONDS),
+                "the final DELIVERED frame must reach the client before the gateway closes the client leg");
+        assertTrue(deliveredFrame.get().contains("\"estimatedTimeRemainingSeconds\":0"),
+                "the final frame must carry ETR 0");
     }
 
     @Test

@@ -15,6 +15,7 @@ import it.unibo.sap.delivery.application.DeliveryExceptions.DeliveryNotFoundExce
 import it.unibo.sap.delivery.application.DeliveryExceptions.ValidationRejectedException;
 import it.unibo.sap.delivery.application.DeliveryService;
 import it.unibo.sap.delivery.application.TrackingHandle;
+import it.unibo.sap.delivery.domain.deliveries.DeliveryStatus;
 import it.unibo.sap.delivery.domain.deliveries.DeliveryTrackingView;
 
 import java.time.LocalDateTime;
@@ -147,9 +148,21 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
                 return;
             }
             final String address = VertxTrackingSessionEventObserver.TRACKING_ADDRESS_PREFIX + deliveryId;
-            vertx.eventBus().consumer(address, msg ->
-                    webSocket.writeTextMessage(((JsonObject) msg.body()).encode()));
+            vertx.eventBus().consumer(address, msg -> {
+                final JsonObject update = (JsonObject) msg.body();
+                final String frame = update.encode();
+                if (isTerminalStatus(update.getString("status"))) {
+                    webSocket.writeTextMessage(frame, ar -> webSocket.close());
+                } else {
+                    webSocket.writeTextMessage(frame);
+                }
+            });
         });
+    }
+
+    private static boolean isTerminalStatus(final String status) {
+        return DeliveryStatus.DELIVERED.name().equals(status)
+                || DeliveryStatus.ABOLISHED.name().equals(status);
     }
 
     private CreateDeliveryCommand toCommand(final JsonObject body) {

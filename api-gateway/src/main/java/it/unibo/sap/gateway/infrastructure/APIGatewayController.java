@@ -71,7 +71,7 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
         clientSocket.textMessageHandler(firstFrame -> {
             if (relayOpened.compareAndSet(false, true)) {
                 deliveryServiceProxy.openTrackingRelay(
-                        webSocketClient, clientSocket, trackingSessionId, firstFrame);
+                        vertx, webSocketClient, clientSocket, trackingSessionId, firstFrame);
             }
         });
     }
