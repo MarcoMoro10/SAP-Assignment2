@@ -3,9 +3,6 @@ Feature: Account registration and access (component, REST black-box)
   I want to register and log into the account-service
   so that I can later request and track drone deliveries.
 
-  # Component test: the account-service is exercised directly over its REST API,
-  # with no session-service in front (login uses POST /api/v1/accounts/login).
-
   Scenario: Successful registration
     When I register with username "user-1" and password "Secret#123"
     Then the account is created with role "SENDER"

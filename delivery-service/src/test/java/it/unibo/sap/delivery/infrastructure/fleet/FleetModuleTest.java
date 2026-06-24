@@ -28,7 +28,6 @@ class FleetModuleTest {
     @BeforeEach
     void setUp() {
         drones = new InMemoryDroneRepository();
-        // DRN-NEAR right on the pickup, DRN-FAR well away; both 5kg capacity and available.
         drones.save(Drone.create(DroneId.of("DRN-NEAR"),
                 Position.at(new Coordinates(44.49, 11.34)), new PayloadCapacity(5.0)));
         drones.save(Drone.create(DroneId.of("DRN-FAR"),

@@ -2,9 +2,6 @@ package it.unibo.sap.delivery.infrastructure;
 
 final class Env {
 
-    private Env() {
-    }
-
     static String get(final String name, final String defaultValue) {
         final String value = System.getenv(name);
         return value == null || value.isBlank() ? defaultValue : value;

@@ -110,10 +110,6 @@ public class Drone implements AggregateRoot<DroneId> {
         return position;
     }
 
-    public PayloadCapacity getPayloadCapacity() {
-        return payloadCapacity;
-    }
-
     public String getAssignedDeliveryId() {
         return assignedDeliveryId;
     }

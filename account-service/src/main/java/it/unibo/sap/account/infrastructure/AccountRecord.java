@@ -8,10 +8,6 @@ public class AccountRecord {
     public String role;
     public long whenCreated;
 
-    /** No-arg constructor required by Jackson to deserialize accounts loaded from file. */
-    public AccountRecord() {
-    }
-
     public AccountRecord(final String accountId, final String username, final String passwordHash,
                          final String role, final long whenCreated) {
         this.accountId = accountId;

@@ -3,9 +3,6 @@ Feature: Create and track a delivery (component, REST black-box)
   I want to create a delivery and track it
   so that my package is shipped and I can follow it in real time.
 
-  # Component test: the delivery-service (with Fleet wired in-process) is exercised directly over
-  # its REST API. No api-gateway and no account-service are involved.
-
   Scenario: Successful immediate delivery creation assigns a drone
     When I create an immediate delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" as "user-1"
     Then the delivery is created with status "IN_PROGRESS"

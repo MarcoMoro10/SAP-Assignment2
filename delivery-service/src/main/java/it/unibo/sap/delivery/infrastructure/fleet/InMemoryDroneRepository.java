@@ -25,7 +25,4 @@ public class InMemoryDroneRepository {
         return new ArrayList<>(store.values());
     }
 
-    public boolean contains(final DroneId id) {
-        return store.containsKey(id.value());
-    }
 }
