@@ -59,15 +59,15 @@ class PrometheusDeliveryMetricsTest {
         final CreateDeliveryResult created = service.createDelivery(new CreateDeliveryCommand(
                 "user-1", 2.0, "via Emilia", 9, "via Veneto", 5, true, null, 0));
 
-        assertEquals(1.0, metric("nTotalDeliveriesCreated"));
-        assertEquals(1.0, metric("nDeliveriesOnDelivery"));
-        assertEquals(0.0, metric("nDeliveriesDelivered"));
+        assertEquals(1.0, metric("created_deliveries"));
+        assertEquals(1.0, metric("deliveries_in_progress"));
+        assertEquals(0.0, metric("deliveries_delivered"));
 
         handler.onDroneArrived(created.deliveryId(), 44.50, 11.34);
 
-        assertEquals(0.0, metric("nDeliveriesOnDelivery"));
-        assertEquals(1.0, metric("nDeliveriesDelivered"));
-        assertEquals(1.0, metric("nTotalDeliveriesCreated"));
+        assertEquals(0.0, metric("deliveries_in_progress"));
+        assertEquals(1.0, metric("deliveries_delivered"));
+        assertEquals(1.0, metric("created_deliveries"));
     }
 
     private static double metric(final String name) throws Exception {

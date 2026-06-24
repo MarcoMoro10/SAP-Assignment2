@@ -25,15 +25,15 @@ public class PrometheusControllerObserver implements ControllerObserver, OutputA
     public PrometheusControllerObserver(final PrometheusRegistry registry, final int metricsPort) {
         JvmMetrics.builder().register(registry);
         this.nTotalNumberOfRESTRequests = Counter.builder()
-                .name("nTotalNumberOfRESTRequests")
+                .name("rest_requests")
                 .help("Total number of REST requests received by the gateway")
                 .register(registry);
         this.totalRequestResponseTime = Counter.builder()
-                .name("totalRequestResponseTime")
+                .name("request_response_time_seconds")
                 .help("Accumulated REST request/response time in seconds")
                 .register(registry);
         this.isAccountCircuitOpen = Gauge.builder()
-                .name("isAccountCircuitOpen")
+                .name("account_circuit_open")
                 .help("Whether the account circuit breaker is open (1) or closed (0)")
                 .register(registry);
         this.isAccountCircuitOpen.set(0);

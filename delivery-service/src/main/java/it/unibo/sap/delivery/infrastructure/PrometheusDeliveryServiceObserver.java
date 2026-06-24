@@ -25,15 +25,15 @@ public class PrometheusDeliveryServiceObserver implements DeliveryServiceEventOb
     public PrometheusDeliveryServiceObserver(final PrometheusRegistry registry, final int metricsPort) {
         JvmMetrics.builder().register(registry);
         this.nTotalDeliveriesCreated = Counter.builder()
-                .name("nTotalDeliveriesCreated")
+                .name("created_deliveries")
                 .help("Total number of deliveries created")
                 .register(registry);
         this.nDeliveriesOnDelivery = Gauge.builder()
-                .name("nDeliveriesOnDelivery")
+                .name("deliveries_in_progress")
                 .help("Number of deliveries currently in progress")
                 .register(registry);
         this.nDeliveriesDelivered = Counter.builder()
-                .name("nDeliveriesDelivered")
+                .name("deliveries_delivered")
                 .help("Total number of deliveries delivered")
                 .register(registry);
         try {

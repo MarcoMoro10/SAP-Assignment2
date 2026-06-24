@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies the gateway's infrastructure-level metrics: a REST request through the controller increments
- * {@code nTotalNumberOfRESTRequests} on the Prometheus {@code /metrics} endpoint. The controller is wired
+ * {@code rest_requests} on the Prometheus {@code /metrics} endpoint. The controller is wired
  * to a {@link PrometheusControllerObserver} with its own registry (test isolation) and a dedicated
  * metrics port. The downstream proxies point at a dead port, so health resolves fast (DOWN → still 200).
  */
@@ -72,14 +72,14 @@ class PrometheusGatewayMetricsTest {
 
     @Test
     void aRestRequestIncrementsTheRequestCounter() throws Exception {
-        final double before = metric("nTotalNumberOfRESTRequests");
+        final double before = metric("rest_requests");
 
         final CompletableFuture<Integer> done = new CompletableFuture<>();
         webClient.get(GW_PORT, HOST, "/api/v1/health")
                 .send(ar -> done.complete(ar.succeeded() ? ar.result().statusCode() : -1));
         done.get(15, TimeUnit.SECONDS);
 
-        final double after = metric("nTotalNumberOfRESTRequests");
+        final double after = metric("rest_requests");
         assertTrue(after >= before + 1,
                 "expected the REST request counter to increase, before=" + before + " after=" + after);
     }
