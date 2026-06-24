@@ -1,5 +1,6 @@
 package it.unibo.sap.gateway.infrastructure;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.http.WebSocketClient;
@@ -21,12 +22,22 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
     private final int port;
     private final int fleetPort;
 
+    private static final long HEALTH_TIMEOUT_MS = 2000;
+
     public DeliveryServiceProxy(final WebClient webClient, final String host,
                                 final int port, final int fleetPort) {
         this.webClient = webClient;
         this.host = host;
         this.port = port;
         this.fleetPort = fleetPort;
+    }
+
+    public Future<Boolean> pingHealth() {
+        return webClient.get(port, host, "/api/v1/health")
+                .timeout(HEALTH_TIMEOUT_MS)
+                .send()
+                .map(resp -> resp.statusCode() == 200)
+                .otherwise(false);
     }
 
     @Override

@@ -25,6 +25,7 @@ public class AccountServiceController extends AbstractVerticle implements InputA
     public void start(final Promise<Void> startPromise) {
         final Router router = Router.router(vertx);
         router.route("/api/v1/accounts*").handler(BodyHandler.create());
+        router.get("/api/v1/health").handler(this::handleHealth);
         router.post("/api/v1/accounts").handler(this::handleRegister);
         router.post("/api/v1/accounts/login").handler(this::handleLogin);
         router.get("/api/v1/accounts/:accountId").handler(this::handleGetAccount);
@@ -39,6 +40,12 @@ public class AccountServiceController extends AbstractVerticle implements InputA
                         startPromise.fail(http.cause());
                     }
                 });
+    }
+
+    private void handleHealth(final RoutingContext ctx) {
+        ctx.response().setStatusCode(200)
+                .putHeader("Content-Type", "application/json")
+                .end(new JsonObject().put("status", "UP").encode());
     }
 
     private void handleRegister(final RoutingContext ctx) {

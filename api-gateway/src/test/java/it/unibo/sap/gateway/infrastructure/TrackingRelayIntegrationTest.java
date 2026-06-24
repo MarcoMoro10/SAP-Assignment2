@@ -102,12 +102,14 @@ class TrackingRelayIntegrationTest {
 
     private static void startGateway() {
         final WebClient gatewayClient = WebClient.create(vertx);
+        final AccountServiceProxy accountProxy =
+                new AccountServiceProxy(gatewayClient, HOST, DELIVERY_PORT);
         final DeliveryServiceProxy deliveryProxy =
                 new DeliveryServiceProxy(gatewayClient, HOST, DELIVERY_PORT, DELIVERY_PORT);
         final FakeAccountService account = new FakeAccountService().withSuccessfulLogin("acc-1", "SENDER");
         final SessionRepository sessions = new InMemorySessionRepository();
         final SessionService service = new SessionServiceImpl(account, deliveryProxy, sessions);
-        final var controller = new APIGatewayController(service, deliveryProxy, GATEWAY_PORT);
+        final var controller = new APIGatewayController(service, accountProxy, deliveryProxy, GATEWAY_PORT);
 
         final CountDownLatch latch = new CountDownLatch(1);
         vertx.deployVerticle(controller).onComplete(ar -> latch.countDown());

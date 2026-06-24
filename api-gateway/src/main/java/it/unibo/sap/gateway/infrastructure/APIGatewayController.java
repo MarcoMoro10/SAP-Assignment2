@@ -1,9 +1,11 @@
 package it.unibo.sap.gateway.infrastructure;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.http.WebSocketClient;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -20,14 +22,17 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
     private static final String TRACK_PREFIX = "/api/v1/track/";
 
     private final SessionService sessionService;
+    private final AccountServiceProxy accountServiceProxy;
     private final DeliveryServiceProxy deliveryServiceProxy;
     private final int port;
     private WebSocketClient webSocketClient;
 
     public APIGatewayController(final SessionService sessionService,
+                                final AccountServiceProxy accountServiceProxy,
                                 final DeliveryServiceProxy deliveryServiceProxy,
                                 final int port) {
         this.sessionService = sessionService;
+        this.accountServiceProxy = accountServiceProxy;
         this.deliveryServiceProxy = deliveryServiceProxy;
         this.port = port;
     }
@@ -36,6 +41,7 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
     public void start(final Promise<Void> startPromise) {
         final Router router = Router.router(vertx);
         router.route("/api/v1/*").handler(BodyHandler.create());
+        router.get("/api/v1/health").handler(this::handleHealth);
         router.post("/api/v1/login").handler(this::handleLogin);
         router.post("/api/v1/user-sessions/:sessionId/create-delivery").handler(this::handleCreateDelivery);
         router.post("/api/v1/user-sessions/:sessionId/cancel-delivery").handler(this::handleCancelDelivery);
@@ -58,6 +64,23 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
                         startPromise.fail(http.cause());
                     }
                 });
+    }
+
+    private void handleHealth(final RoutingContext ctx) {
+        final Future<Boolean> account = accountServiceProxy.pingHealth();
+        final Future<Boolean> delivery = deliveryServiceProxy.pingHealth();
+        Future.all(account, delivery).onComplete(ar -> {
+            final JsonArray checks = new JsonArray()
+                    .add(check("account-service", account.result()))
+                    .add(check("delivery-service", delivery.result()));
+            ctx.response().setStatusCode(200)
+                    .putHeader("Content-Type", "application/json")
+                    .end(new JsonObject().put("status", "UP").put("checks", checks).encode());
+        });
+    }
+
+    private static JsonObject check(final String name, final Boolean up) {
+        return new JsonObject().put("name", name).put("status", Boolean.TRUE.equals(up) ? "UP" : "DOWN");
     }
 
     private void handleTrackingRelay(final ServerWebSocket clientSocket) {

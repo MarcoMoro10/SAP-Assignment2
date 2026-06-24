@@ -1,5 +1,6 @@
 package it.unibo.sap.gateway.infrastructure;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 import it.unibo.sap.common.hexagonal.OutputAdapter;
@@ -10,6 +11,8 @@ import java.util.concurrent.CompletableFuture;
 
 public class AccountServiceProxy implements AccountService, OutputAdapter {
 
+    private static final long HEALTH_TIMEOUT_MS = 2000;
+
     private final WebClient webClient;
     private final String host;
     private final int port;
@@ -18,6 +21,14 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
         this.webClient = webClient;
         this.host = host;
         this.port = port;
+    }
+
+    public Future<Boolean> pingHealth() {
+        return webClient.get(port, host, "/api/v1/health")
+                .timeout(HEALTH_TIMEOUT_MS)
+                .send()
+                .map(resp -> resp.statusCode() == 200)
+                .otherwise(false);
     }
 
     @Override

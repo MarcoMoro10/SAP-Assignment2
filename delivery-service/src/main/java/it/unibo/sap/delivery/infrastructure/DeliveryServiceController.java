@@ -34,6 +34,7 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
     public void start(final Promise<Void> startPromise) {
         final Router router = Router.router(vertx);
         router.route("/api/v1/*").handler(BodyHandler.create());
+        router.get("/api/v1/health").handler(this::handleHealth);
         router.post("/api/v1/deliveries").handler(this::handleCreate);
         router.get("/api/v1/deliveries/:deliveryId").handler(this::handleGet);
         router.post("/api/v1/deliveries/:deliveryId/cancel").handler(this::handleCancel);
@@ -51,6 +52,12 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
                         startPromise.fail(http.cause());
                     }
                 });
+    }
+
+    private void handleHealth(final RoutingContext ctx) {
+        ctx.response().setStatusCode(200)
+                .putHeader("Content-Type", "application/json")
+                .end(new JsonObject().put("status", "UP").encode());
     }
 
     private void handleCreate(final RoutingContext ctx) {

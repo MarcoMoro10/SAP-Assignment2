@@ -2,7 +2,6 @@ package it.unibo.sap.gateway.infrastructure;
 
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.client.WebClient;
-import it.unibo.sap.gateway.application.AccountService;
 import it.unibo.sap.gateway.application.SessionRepository;
 import it.unibo.sap.gateway.application.SessionService;
 import it.unibo.sap.gateway.application.SessionServiceImpl;
@@ -21,7 +20,7 @@ public class APIGatewayMain {
         final Vertx vertx = Vertx.vertx();
         final WebClient webClient = WebClient.create(vertx);
 
-        final AccountService accountServiceProxy =
+        final AccountServiceProxy accountServiceProxy =
                 new AccountServiceProxy(webClient, ACCOUNT_HOST, ACCOUNT_PORT);
         final DeliveryServiceProxy deliveryServiceProxy =
                 new DeliveryServiceProxy(webClient, DELIVERY_HOST, DELIVERY_PORT, FLEET_PORT);
@@ -30,7 +29,8 @@ public class APIGatewayMain {
         final SessionService service = new SessionServiceImpl(
                 accountServiceProxy, deliveryServiceProxy, sessionRepository);
 
-        final var controller = new APIGatewayController(service, deliveryServiceProxy, GATEWAY_PORT);
+        final var controller = new APIGatewayController(
+                service, accountServiceProxy, deliveryServiceProxy, GATEWAY_PORT);
         vertx.deployVerticle(controller);
     }
 }
