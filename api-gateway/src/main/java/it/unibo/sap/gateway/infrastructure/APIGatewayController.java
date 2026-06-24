@@ -2,6 +2,8 @@ package it.unibo.sap.gateway.infrastructure;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
+import io.vertx.core.http.ServerWebSocket;
+import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -11,21 +13,22 @@ import it.unibo.sap.gateway.application.SessionService;
 import it.unibo.sap.gateway.domain.Session;
 import it.unibo.sap.gateway.domain.SessionId;
 
-/**
- * API Gateway controller (formerly SessionServiceController): the single client-facing entrypoint.
- * Exposes login, the delivery commands and the admin queries, orchestrating the downstream services
- * through the proxies behind {@link SessionService}.
- *
- * <p>STEP 4 is REST-only. The WebSocket tracking relay (client &lt;-&gt; gateway &lt;-&gt; delivery)
- * is intentionally not implemented here yet — see STEP 5.
- */
+import java.util.concurrent.atomic.AtomicBoolean;
+
 public class APIGatewayController extends AbstractVerticle implements InputAdapter {
 
-    private final SessionService sessionService;
-    private final int port;
+    private static final String TRACK_PREFIX = "/api/v1/track/";
 
-    public APIGatewayController(final SessionService sessionService, final int port) {
+    private final SessionService sessionService;
+    private final DeliveryServiceProxy deliveryServiceProxy;
+    private final int port;
+    private WebSocketClient webSocketClient;
+
+    public APIGatewayController(final SessionService sessionService,
+                                final DeliveryServiceProxy deliveryServiceProxy,
+                                final int port) {
         this.sessionService = sessionService;
+        this.deliveryServiceProxy = deliveryServiceProxy;
         this.port = port;
     }
 
@@ -41,11 +44,12 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
         router.get("/api/v1/user-sessions/:sessionId/admin/fleet").handler(this::handleViewFleet);
         router.get("/api/v1/user-sessions/:sessionId/admin/scheduling").handler(this::handleViewScheduling);
 
-        // TODO STEP 5: add server.webSocketHandler(...) here and relay to the delivery-service
-        //              via vertx.createWebSocketClient() inside DeliveryServiceProxy.
+        this.webSocketClient = vertx.createWebSocketClient();
 
-        vertx.createHttpServer()
-                .requestHandler(router)
+        final var server = vertx.createHttpServer();
+        server.webSocketHandler(this::handleTrackingRelay);
+
+        server.requestHandler(router)
                 .listen(port, http -> {
                     if (http.succeeded()) {
                         System.out.println("api-gateway ready - port: " + port);
@@ -54,6 +58,22 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
                         startPromise.fail(http.cause());
                     }
                 });
+    }
+
+    private void handleTrackingRelay(final ServerWebSocket clientSocket) {
+        final String path = clientSocket.path();
+        if (path == null || !path.startsWith(TRACK_PREFIX)) {
+            clientSocket.reject();
+            return;
+        }
+        final String trackingSessionId = path.substring(TRACK_PREFIX.length());
+        final AtomicBoolean relayOpened = new AtomicBoolean(false);
+        clientSocket.textMessageHandler(firstFrame -> {
+            if (relayOpened.compareAndSet(false, true)) {
+                deliveryServiceProxy.openTrackingRelay(
+                        webSocketClient, clientSocket, trackingSessionId, firstFrame);
+            }
+        });
     }
 
     private void handleLogin(final RoutingContext ctx) {
@@ -113,7 +133,13 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
         final JsonObject body = ctx.body().asJsonObject();
         final String deliveryId = body == null ? null : body.getString("deliveryId");
         dispatch(ctx, () -> sessionService.trackDelivery(sessionId, deliveryId),
-                result -> writeJson(ctx, 200, result));
+                result -> writeJson(ctx, 200, rewriteTrackingUrl(result)));
+    }
+
+    private JsonObject rewriteTrackingUrl(final JsonObject deliveryResponse) {
+        final String trackingSessionId = deliveryResponse.getString("trackingSessionId");
+        return deliveryResponse.copy()
+                .put("webSocketUrl", "ws://localhost:" + port + TRACK_PREFIX + trackingSessionId);
     }
 
     private void handleGetDelivery(final RoutingContext ctx) {

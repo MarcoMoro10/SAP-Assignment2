@@ -1,5 +1,7 @@
 package it.unibo.sap.gateway.infrastructure;
 
+import io.vertx.core.http.ServerWebSocket;
+import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
@@ -85,6 +87,21 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
         return blocking(
                 webClient.get(fleetPort, host, path),
                 resp -> new JsonObject().put("scheduling", resp.bodyAsJsonArray()));
+    }
+
+    public void openTrackingRelay(final WebSocketClient wsClient,
+                                  final ServerWebSocket clientSocket,
+                                  final String trackingSessionId,
+                                  final String firstFrame) {
+        wsClient.connect(port, host, "/api/v1/track/" + trackingSessionId)
+                .onSuccess(deliverySocket -> {
+                    deliverySocket.writeTextMessage(firstFrame);
+                    deliverySocket.textMessageHandler(clientSocket::writeTextMessage);
+                    clientSocket.textMessageHandler(deliverySocket::writeTextMessage);
+                    clientSocket.closeHandler(v -> deliverySocket.close());
+                    deliverySocket.closeHandler(v -> clientSocket.close());
+                })
+                .onFailure(err -> clientSocket.close());
     }
 
     private JsonObject blocking(final HttpRequest<io.vertx.core.buffer.Buffer> request,
