@@ -5,6 +5,7 @@ import it.unibo.sap.delivery.application.DeliveryRepository;
 import it.unibo.sap.delivery.application.DeliveryService;
 import it.unibo.sap.delivery.application.DeliveryServiceImpl;
 import it.unibo.sap.delivery.application.DroneEventHandler;
+import it.unibo.sap.delivery.application.EventStore;
 import it.unibo.sap.delivery.application.GeocodingPort;
 import it.unibo.sap.delivery.application.TrackingSessionEventObserver;
 import it.unibo.sap.delivery.application.TrackingSessionRegistry;
@@ -23,7 +24,8 @@ public class DeliveryServiceMain {
     public static void main(final String[] args) {
         final Vertx vertx = Vertx.vertx();
 
-        final DeliveryRepository deliveryRepository = new FileBasedDeliveryRepository();
+        final EventStore eventStore = new FileBasedEventStore();
+        final DeliveryRepository deliveryRepository = new EventSourcedDeliveryRepository(eventStore);
         final TrackingSessionRegistry trackingRegistry = new InMemoryTrackingSessionRegistry();
         final GeocodingPort geocoding = new GeocodingService();
         final TrackingSessionEventObserver trackingObserver =
