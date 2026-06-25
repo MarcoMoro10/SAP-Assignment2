@@ -33,8 +33,11 @@ public class APIGatewayMain {
 
         final ControllerObserver controllerObserver = new PrometheusControllerObserver(metricsPort);
 
+        final CircuitBreaker accountCircuitBreaker = new CircuitBreaker();
+        accountCircuitBreaker.setOnStateChange(controllerObserver::setAccountCircuitOpen);
+
         final AccountServiceProxy accountServiceProxy =
-                new AccountServiceProxy(webClient, accountHost, accountPort);
+                new AccountServiceProxy(webClient, accountHost, accountPort, accountCircuitBreaker);
         final DeliveryServiceProxy deliveryServiceProxy =
                 new DeliveryServiceProxy(webClient, deliveryHost, deliveryPort, fleetPort);
         final SessionRepository sessionRepository = new InMemorySessionRepository();

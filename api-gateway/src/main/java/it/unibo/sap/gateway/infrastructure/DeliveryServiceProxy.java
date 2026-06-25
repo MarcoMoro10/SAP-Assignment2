@@ -21,15 +21,23 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
     private final String host;
     private final int port;
     private final int fleetPort;
+    private final CircuitBreaker circuitBreaker;
 
     private static final long HEALTH_TIMEOUT_MS = 2000;
 
     public DeliveryServiceProxy(final WebClient webClient, final String host,
                                 final int port, final int fleetPort) {
+        this(webClient, host, port, fleetPort, new CircuitBreaker());
+    }
+
+    public DeliveryServiceProxy(final WebClient webClient, final String host,
+                                final int port, final int fleetPort,
+                                final CircuitBreaker circuitBreaker) {
         this.webClient = webClient;
         this.host = host;
         this.port = port;
         this.fleetPort = fleetPort;
+        this.circuitBreaker = circuitBreaker;
     }
 
     public Future<Boolean> pingHealth() {
@@ -58,13 +66,20 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
 
     @Override
     public Optional<JsonObject> getDelivery(final String deliveryId, final String senderId) {
+        if (failFast()) {
+            return Optional.empty();
+        }
         final CompletableFuture<Optional<JsonObject>> future = new CompletableFuture<>();
         webClient.get(port, host, "/api/v1/deliveries/" + deliveryId)
                 .addQueryParam("senderId", senderId)
                 .send(ar -> {
-                    if (ar.succeeded() && ar.result().statusCode() == 200) {
-                        future.complete(Optional.of(ar.result().bodyAsJsonObject()));
+                    if (ar.succeeded()) {
+                        circuitBreaker.recordSuccess();
+                        future.complete(ar.result().statusCode() == 200
+                                ? Optional.of(ar.result().bodyAsJsonObject())
+                                : Optional.empty());
                     } else {
+                        circuitBreaker.recordFailure();
                         future.complete(Optional.empty());
                     }
                 });
@@ -121,11 +136,16 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
 
     private JsonObject blocking(final HttpRequest<io.vertx.core.buffer.Buffer> request,
                                 final Function<HttpResponse<io.vertx.core.buffer.Buffer>, JsonObject> onSuccess) {
+        if (failFast()) {
+            throw new RuntimeException("delivery-service circuit is open");
+        }
         final CompletableFuture<JsonObject> future = new CompletableFuture<>();
         request.send(ar -> {
             if (ar.succeeded()) {
+                circuitBreaker.recordSuccess();
                 future.complete(onSuccess.apply(ar.result()));
             } else {
+                circuitBreaker.recordFailure();
                 future.completeExceptionally(ar.cause());
             }
         });
@@ -135,11 +155,16 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
     private JsonObject blocking(final HttpRequest<io.vertx.core.buffer.Buffer> request,
                                 final JsonObject body,
                                 final Function<HttpResponse<io.vertx.core.buffer.Buffer>, JsonObject> onSuccess) {
+        if (failFast()) {
+            throw new RuntimeException("delivery-service circuit is open");
+        }
         final CompletableFuture<JsonObject> future = new CompletableFuture<>();
         request.sendJsonObject(body, ar -> {
             if (ar.succeeded()) {
+                circuitBreaker.recordSuccess();
                 future.complete(onSuccess.apply(ar.result()));
             } else {
+                circuitBreaker.recordFailure();
                 future.completeExceptionally(ar.cause());
             }
         });
@@ -151,6 +176,26 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
             return future.get();
         } catch (final Exception e) {
             throw new RuntimeException("Failed to contact delivery-service", e);
+        }
+    }
+
+    private boolean failFast() {
+        if (circuitBreaker.isOpen()) {
+            attemptRecovery();
+            return true;
+        }
+        return false;
+    }
+
+    private void attemptRecovery() {
+        if (circuitBreaker.tryStartProbe()) {
+            pingHealth().onComplete(ar -> {
+                if (ar.succeeded() && Boolean.TRUE.equals(ar.result())) {
+                    circuitBreaker.probeSucceeded();
+                } else {
+                    circuitBreaker.probeFailed();
+                }
+            });
         }
     }
 }

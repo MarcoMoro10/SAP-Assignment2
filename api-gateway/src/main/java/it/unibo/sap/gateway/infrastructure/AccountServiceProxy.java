@@ -16,11 +16,18 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
     private final WebClient webClient;
     private final String host;
     private final int port;
+    private final CircuitBreaker circuitBreaker;
 
     public AccountServiceProxy(final WebClient webClient, final String host, final int port) {
+        this(webClient, host, port, new CircuitBreaker());
+    }
+
+    public AccountServiceProxy(final WebClient webClient, final String host, final int port,
+                              final CircuitBreaker circuitBreaker) {
         this.webClient = webClient;
         this.host = host;
         this.port = port;
+        this.circuitBreaker = circuitBreaker;
     }
 
     public Future<Boolean> pingHealth() {
@@ -33,6 +40,10 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
 
     @Override
     public Optional<JsonObject> login(final String username, final String password) {
+        if (circuitBreaker.isOpen()) {
+            attemptRecovery();
+            return Optional.empty();
+        }
         final CompletableFuture<Optional<JsonObject>> future = new CompletableFuture<>();
         final JsonObject body = new JsonObject()
                 .put("username", username)
@@ -40,8 +51,10 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
         webClient.post(port, host, "/api/v1/accounts/login")
                 .sendJsonObject(body, ar -> {
                     if (ar.succeeded() && ar.result().statusCode() == 200) {
+                        circuitBreaker.recordSuccess();
                         future.complete(Optional.of(ar.result().bodyAsJsonObject()));
                     } else {
+                        circuitBreaker.recordFailure();
                         future.complete(Optional.empty());
                     }
                 });
@@ -49,6 +62,18 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
             return future.get();
         } catch (final Exception e) {
             return Optional.empty();
+        }
+    }
+
+    private void attemptRecovery() {
+        if (circuitBreaker.tryStartProbe()) {
+            pingHealth().onComplete(ar -> {
+                if (ar.succeeded() && Boolean.TRUE.equals(ar.result())) {
+                    circuitBreaker.probeSucceeded();
+                } else {
+                    circuitBreaker.probeFailed();
+                }
+            });
         }
     }
 }
