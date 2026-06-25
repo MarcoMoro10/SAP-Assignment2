@@ -21,6 +21,14 @@ Feature: Create and track a delivery (component, REST black-box)
     When I create an immediate delivery of weight "2" kg from "xxxxx" to "via Veneto, 5" as "user-1"
     Then the response status is 400 with error "Invalid address"
 
+  Scenario: A scheduled delivery with a past shipping time is rejected
+    When I create a delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" scheduled in "-1" days as "user-1"
+    Then the response status is 400 with error "Invalid shipping time"
+
+  Scenario: A scheduled delivery beyond the maximum horizon is rejected
+    When I create a delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" scheduled in "30" days as "user-1"
+    Then the response status is 422 with error "Shipping time exceeds the maximum scheduling horizon"
+
   Scenario: Read back the detail of a created delivery
     When I create an immediate delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" as "user-1"
     Then the delivery is created with status "IN_PROGRESS"

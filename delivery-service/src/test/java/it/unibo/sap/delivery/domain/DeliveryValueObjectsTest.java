@@ -1,6 +1,7 @@
 package it.unibo.sap.delivery.domain;
 
 import it.unibo.sap.delivery.domain.deliveries.Coordinates;
+import it.unibo.sap.delivery.domain.deliveries.Deadline;
 import it.unibo.sap.delivery.domain.deliveries.EstimatedTimeRemaining;
 import it.unibo.sap.delivery.domain.deliveries.Package;
 import it.unibo.sap.delivery.domain.deliveries.SenderId;
@@ -42,6 +43,14 @@ class DeliveryValueObjectsTest {
     void senderIdRejectsBlank() {
         assertThrows(IllegalArgumentException.class, () -> SenderId.of(" "));
         assertEquals(SenderId.of("user-1"), SenderId.of("user-1"));
+    }
+
+    @Test
+    void deadlineRejectsNonPositiveDuration() {
+        assertThrows(IllegalArgumentException.class, () -> Deadline.ofMinutes(0));
+        assertThrows(IllegalArgumentException.class, () -> Deadline.ofMinutes(-5));
+        assertThrows(IllegalArgumentException.class, () -> new Deadline(Duration.ZERO));
+        assertEquals(Duration.ofMinutes(30), Deadline.ofMinutes(30).maxDuration());
     }
 
     @Test
