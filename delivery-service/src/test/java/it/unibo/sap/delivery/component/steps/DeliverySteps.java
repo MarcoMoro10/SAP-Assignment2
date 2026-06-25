@@ -27,6 +27,7 @@ public class DeliverySteps {
     private int lastStatus;
     private JsonObject lastBody = new JsonObject();
     private JsonArray lastFleet = new JsonArray();
+    private JsonArray lastScheduling = new JsonArray();
     private String createdDeliveryId;
 
     @When("I create an immediate delivery of weight {string} kg from {string} to {string} as {string}")
@@ -134,6 +135,42 @@ public class DeliverySteps {
         for (int i = 0; i < lastFleet.size(); i++) {
             assertEquals(status, lastFleet.getJsonObject(i).getString("status"));
         }
+    }
+
+    @When("the admin requests the scheduling view")
+    public void adminRequestsSchedulingView() {
+        final CompletableFuture<JsonArray> done = new CompletableFuture<>();
+        ctx.webClient()
+                .get(ctx.adminPort(), ctx.host(), "/api/v1/admin/scheduling")
+                .send(ar -> {
+                    if (ar.succeeded()) {
+                        lastStatus = ar.result().statusCode();
+                        done.complete(safeJsonArray(ar.result().bodyAsString()));
+                    } else {
+                        done.completeExceptionally(ar.cause());
+                    }
+                });
+        try {
+            lastScheduling = done.get(10, TimeUnit.SECONDS);
+        } catch (final Exception e) {
+            throw new IllegalStateException("HTTP call to admin scheduling view failed", e);
+        }
+    }
+
+    @Then("the scheduling view lists that delivery with a scheduled slot")
+    public void schedulingViewListsThatDelivery() {
+        assertEquals(200, lastStatus);
+        JsonObject entry = null;
+        for (int i = 0; i < lastScheduling.size(); i++) {
+            final JsonObject s = lastScheduling.getJsonObject(i);
+            if (createdDeliveryId.equals(s.getString("deliveryId"))) {
+                entry = s;
+                break;
+            }
+        }
+        assertNotNull(entry, "expected the scheduled delivery to appear in the scheduling view");
+        assertNotNull(entry.getString("scheduledAt"), "expected a scheduled slot for the delivery");
+        assertEquals("SCHEDULED", entry.getString("status"));
     }
 
     @Then("at least one drone is {string} and carrying a package")

@@ -55,3 +55,9 @@ Feature: Create and track a delivery (component, REST black-box)
     When the admin requests the fleet view
     Then the fleet view lists 3 drones
     And at least one drone is "IN_DELIVERY" and carrying a package
+
+  Scenario: Admin views the scheduled deliveries
+    When I create a delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" scheduled in "2" days as "user-1"
+    Then the delivery is created with status "SCHEDULED"
+    When the admin requests the scheduling view
+    Then the scheduling view lists that delivery with a scheduled slot
