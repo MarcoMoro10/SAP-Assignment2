@@ -10,8 +10,10 @@ info:
   version: 1.0.0
 
 servers:
-  - url: http://localhost:8082/api/v1
-    description: delivery-service (local prototype)
+  - url: http://localhost:9002/api/v1
+    description: delivery-service — deliveries + tracking (REST/WebSocket)
+  - url: http://localhost:9003/api/v1
+    description: delivery-service — admin views (fleet + scheduling)
 
 tags:
   - name: delivery
@@ -228,6 +230,9 @@ paths:
           description: Tracking session not found or already closed
 
   /admin/fleet:
+    servers:
+      - url: http://localhost:9003/api/v1
+        description: delivery-service admin port
     get:
       tags:
         - admin-fleet
@@ -245,6 +250,9 @@ paths:
                   $ref: '#/components/schemas/FleetDroneView'
 
   /admin/scheduling:
+    servers:
+      - url: http://localhost:9003/api/v1
+        description: delivery-service admin port
     get:
       tags:
         - admin-scheduling
@@ -408,7 +416,7 @@ components:
           type: string
         webSocketUrl:
           type: string
-          example: "ws://localhost:8082/api/v1/track/{trackingSessionId}"
+          example: "ws://localhost:9002/api/v1/track/{trackingSessionId}"
 
     TrackingUpdate:
       type: object

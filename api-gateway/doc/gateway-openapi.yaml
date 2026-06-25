@@ -1,27 +1,72 @@
 openapi: 3.0.3
 info:
-  title: "Shipping on the Air — Session Service API"
+  title: "Shipping on the Air — API Gateway API"
   description: |-
-    REST API of the session-service (orchestrator) for the "Shipping on the Air"
-    drone delivery system.
+    Client-facing REST (and WebSocket) API of the api-gateway for the "Shipping on
+    the Air" drone delivery system. The gateway is the sole entrypoint: it routes
+    registration/login to the account-service and delivery/tracking/admin commands
+    to the delivery-service, holds the user sessions, and relays the tracking
+    WebSocket between the client and the delivery-service.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   version: 1.0.0
 
 servers:
-  - url: http://localhost:8081/api/v1
-    description: session-service (local prototype)
+  - url: http://localhost:8080/api/v1
+    description: api-gateway (sole client entrypoint)
 
 tags:
   - name: session
-    description: Registration, login and user-session lifecycle
+    description: Registration, login and user-session lifecycle (routed to the account-service)
   - name: delivery
     description: Sender delivery commands, routed to the delivery-service
   - name: admin
     description: Admin read-only views, routed to the delivery-service
+  - name: tracking
+    description: WebSocket tracking relay (client ↔ gateway ↔ delivery-service)
+  - name: system
+    description: Gateway health check
 
 paths:
+
+  /health:
+    get:
+      tags:
+        - system
+      summary: Gateway health check
+      description: |-
+        Liveness of the gateway plus the aggregated health of its downstream
+        dependencies. The gateway stays UP even when a dependency is DOWN.
+      operationId: health
+      responses:
+        '200':
+          description: Gateway is up; downstream checks are reported individually
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /track/{trackingSessionId}:
+    get:
+      tags:
+        - tracking
+      summary: Live tracking stream (WebSocket relay)
+      description:
+      operationId: trackingRelay
+      parameters:
+        - name: trackingSessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: Switching Protocols — WebSocket relay established
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackingUpdate'
 
   /accounts:
     post:
@@ -528,8 +573,53 @@ components:
           type: string
         webSocketUrl:
           type: string
-          description: WebSocket URL on the delivery-service for the live stream
-          example: "ws://localhost:8082/api/v1/track/{trackingSessionId}"
+          description: WebSocket URL on the gateway relay for the live stream
+          example: "ws://localhost:8080/api/v1/track/{trackingSessionId}"
+
+    Health:
+      type: object
+      description: Gateway liveness plus the aggregated downstream checks.
+      properties:
+        status:
+          type: string
+          example: "UP"
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "account-service"
+              status:
+                type: string
+                example: "UP"
+
+    Coordinates:
+      type: object
+      properties:
+        latitude:
+          type: number
+          example: 44.50
+        longitude:
+          type: number
+          example: 11.35
+
+    TrackingUpdate:
+      type: object
+      description: |-
+        A frame pushed on the tracking WebSocket relay whenever the tracked
+        delivery's position/ETR changes.
+      properties:
+        deliveryId:
+          type: string
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        position:
+          $ref: '#/components/schemas/Coordinates'
+        estimatedTimeRemainingSeconds:
+          type: integer
+          description: 0 when the delivery is DELIVERED.
 
     Delivery:
       type: object
