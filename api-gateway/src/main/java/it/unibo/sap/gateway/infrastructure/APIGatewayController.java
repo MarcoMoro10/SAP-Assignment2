@@ -59,6 +59,7 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
         router.route("/api/v1/*").handler(BodyHandler.create());
         router.route("/api/v1/*").handler(this::observeRequest);
         router.get("/api/v1/health").handler(this::handleHealth);
+        router.post("/api/v1/accounts").handler(this::handleRegister);
         router.post("/api/v1/login").handler(this::handleLogin);
         router.post("/api/v1/user-sessions/:sessionId/create-delivery").handler(this::handleCreateDelivery);
         router.post("/api/v1/user-sessions/:sessionId/cancel-delivery").handler(this::handleCancelDelivery);
@@ -121,6 +122,28 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
                         vertx, webSocketClient, clientSocket, trackingSessionId, firstFrame);
             }
         });
+    }
+
+    private void handleRegister(final RoutingContext ctx) {
+        final JsonObject body = ctx.body().asJsonObject();
+        final String username = body == null ? null : body.getString("username");
+        final String password = body == null ? null : body.getString("password");
+        if (username == null || username.isBlank() || password == null || password.isBlank()) {
+            ctx.response().setStatusCode(400)
+                    .putHeader("Content-Type", "application/json")
+                    .end(new JsonObject().put("error", "Missing username or password").encode());
+            return;
+        }
+        vertx.executeBlocking(() -> accountServiceProxy.register(username, password), false)
+                .onComplete(ar -> {
+                    if (ar.succeeded()) {
+                        writeWithEmbeddedStatus(ctx, ar.result(), 201);
+                    } else {
+                        ctx.response().setStatusCode(502)
+                                .putHeader("Content-Type", "application/json")
+                                .end(new JsonObject().put("error", causeMessage(ar.cause())).encode());
+                    }
+                });
     }
 
     private void handleLogin(final RoutingContext ctx) {

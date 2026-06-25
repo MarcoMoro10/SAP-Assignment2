@@ -12,6 +12,8 @@ import java.util.Optional;
 public final class FakeAccountService implements AccountService {
 
     private JsonObject loginResult;
+    private JsonObject registerResult =
+            new JsonObject().put("_statusCode", 201).put("accountId", "acc-1").put("role", "SENDER");
 
     public FakeAccountService withSuccessfulLogin(final String accountId, final String role) {
         this.loginResult = new JsonObject().put("accountId", accountId).put("role", role);
@@ -23,8 +25,18 @@ public final class FakeAccountService implements AccountService {
         return this;
     }
 
+    public FakeAccountService withRegisterResult(final JsonObject result) {
+        this.registerResult = result;
+        return this;
+    }
+
     @Override
     public Optional<JsonObject> login(final String username, final String password) {
         return Optional.ofNullable(loginResult);
+    }
+
+    @Override
+    public JsonObject register(final String username, final String password) {
+        return registerResult;
     }
 }

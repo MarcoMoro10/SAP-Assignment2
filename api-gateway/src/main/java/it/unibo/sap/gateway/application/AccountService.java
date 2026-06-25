@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface AccountService extends OutputPort {
 
     Optional<JsonObject> login(String username, String password);
+
+    JsonObject register(String username, String password);
 }

@@ -15,13 +15,52 @@ servers:
 
 tags:
   - name: session
-    description: Login and user-session lifecycle
+    description: Registration, login and user-session lifecycle
   - name: delivery
     description: Sender delivery commands, routed to the delivery-service
   - name: admin
     description: Admin read-only views, routed to the delivery-service
 
 paths:
+
+  /accounts:
+    post:
+      tags:
+        - session
+      summary: Register a new Sender account
+      description: |-
+        Public registration, routed by the gateway to the account-service. Creates a new account
+        with role SENDER. Unlike login, registration does NOT open a user session.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '201':
+          description: Account successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          description: Missing or malformed username/password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Missing username or password"
+        '409':
+          description: Username already taken (the account is not created)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Username already taken"
 
   /login:
     post:
@@ -347,6 +386,35 @@ components:
         - IN_DELIVERY
         - ARRIVED
         - OUT_OF_SERVICE
+
+    RegistrationRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "user-1"
+        password:
+          type: string
+          format: password
+          example: "Secret#123"
+
+    RegistrationResponse:
+      type: object
+      description: The newly created account (no session is opened by registration).
+      properties:
+        accountId:
+          type: string
+        username:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        loginLink:
+          type: string
+          description: Convenience link to authenticate the freshly created account
+          example: "/api/v1/login"
 
     LoginRequest:
       type: object

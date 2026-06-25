@@ -65,6 +65,60 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
         }
     }
 
+    @Override
+    public JsonObject register(final String username, final String password) {
+        if (circuitBreaker.isOpen()) {
+            attemptRecovery();
+            return circuitOpenResponse();
+        }
+        final CompletableFuture<JsonObject> future = new CompletableFuture<>();
+        final JsonObject body = new JsonObject()
+                .put("username", username)
+                .put("password", password);
+        webClient.post(port, host, "/api/v1/accounts")
+                .sendJsonObject(body, ar -> {
+                    if (ar.succeeded()) {
+                        final int statusCode = ar.result().statusCode();
+                        // Mirror login: success only on the expected 2xx; 400/409 and network errors fail.
+                        if (statusCode >= 200 && statusCode < 300) {
+                            circuitBreaker.recordSuccess();
+                        } else {
+                            circuitBreaker.recordFailure();
+                        }
+                        future.complete(bodyWithStatus(ar.result(), statusCode));
+                    } else {
+                        circuitBreaker.recordFailure();
+                        future.complete(circuitOpenResponse());
+                    }
+                });
+        try {
+            return future.get();
+        } catch (final Exception e) {
+            return circuitOpenResponse();
+        }
+    }
+
+    private static JsonObject bodyWithStatus(
+            final io.vertx.ext.web.client.HttpResponse<io.vertx.core.buffer.Buffer> resp,
+            final int statusCode) {
+        JsonObject body;
+        try {
+            body = resp.bodyAsJsonObject();
+        } catch (final RuntimeException notJson) {
+            body = null;
+        }
+        if (body == null) {
+            body = new JsonObject();
+        }
+        return body.put("_statusCode", statusCode);
+    }
+
+    private static JsonObject circuitOpenResponse() {
+        return new JsonObject()
+                .put("_statusCode", 503)
+                .put("error", "account-service unavailable");
+    }
+
     private void attemptRecovery() {
         if (circuitBreaker.tryStartProbe()) {
             pingHealth().onComplete(ar -> {
