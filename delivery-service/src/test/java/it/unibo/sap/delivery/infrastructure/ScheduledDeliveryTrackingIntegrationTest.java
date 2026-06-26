@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,8 +36,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * {@link VertxSchedulerVerticle} timer (short tick, NO manual trigger) flips it to IN_PROGRESS, the drone
  * simulator starts moving and the in-process telemetry chain
  * ({@code FleetModule} → {@code DroneEventHandlerSink} → {@code DroneEventHandler}) publishes tracking
- * frames on the event bus at {@code TRACKING_ADDRESS_PREFIX + deliveryId}. The test asserts that at least
- * one IN_PROGRESS frame carrying a position is delivered. Uses {@link VertxTestContext} — no fixed sleeps.
+ * frames on the event bus at {@code TRACKING_ADDRESS_PREFIX + deliveryId}. The test asserts that the
+ * constant-speed movement emits MORE than one IN_PROGRESS frame (each carrying a position) before the
+ * delivery reaches DELIVERED — i.e. the drone cannot teleport to destination. Uses
+ * {@link VertxTestContext} — no fixed sleeps.
  */
 @ExtendWith(VertxExtension.class)
 class ScheduledDeliveryTrackingIntegrationTest {
@@ -46,8 +49,8 @@ class ScheduledDeliveryTrackingIntegrationTest {
 
     @Test
     @Timeout(value = 20, timeUnit = TimeUnit.SECONDS)
-    void scheduledDeliveryStartedByTheTimerPushesAnInProgressTrackingFrame(final Vertx vertx,
-                                                                           final VertxTestContext testContext) {
+    void scheduledDeliveryStartedByTheTimerPushesMultipleInProgressFramesBeforeDelivered(final Vertx vertx,
+                                                                                         final VertxTestContext testContext) {
         final InMemoryDeliveryRepository deliveryRepository = new InMemoryDeliveryRepository();
         final TrackingSessionRegistry trackingRegistry = new InMemoryTrackingSessionRegistry();
         final GeocodingPort geocoding = new GeocodingService();
@@ -72,18 +75,29 @@ class ScheduledDeliveryTrackingIntegrationTest {
 
         deliveryService.startTracking(deliveryId, "user-1");
 
-        final Checkpoint inProgressFrame = testContext.laxCheckpoint();
+        final AtomicInteger inProgressFrames = new AtomicInteger(0);
+        final Checkpoint multipleFrames = testContext.laxCheckpoint();
         vertx.eventBus().consumer(
                 VertxTrackingSessionEventObserver.TRACKING_ADDRESS_PREFIX + deliveryId, msg -> {
                     final JsonObject frame = (JsonObject) msg.body();
-                    if (DeliveryStatus.IN_PROGRESS.name().equals(frame.getString("status"))) {
+                    final String status = frame.getString("status");
+                    if (DeliveryStatus.DELIVERED.name().equals(status)) {
+                        if (inProgressFrames.get() <= 1) {
+                            testContext.failNow("delivery reached DELIVERED after only "
+                                    + inProgressFrames.get() + " IN_PROGRESS frame(s): the drone teleported");
+                        }
+                        return;
+                    }
+                    if (DeliveryStatus.IN_PROGRESS.name().equals(status)) {
                         testContext.verify(() -> {
                             final JsonObject position = frame.getJsonObject("position");
                             assertNotNull(position, "an IN_PROGRESS frame must carry a position");
                             assertNotNull(position.getDouble("latitude"), "position must have a latitude");
                             assertNotNull(position.getDouble("longitude"), "position must have a longitude");
                         });
-                        inProgressFrame.flag();
+                        if (inProgressFrames.incrementAndGet() >= 2) {
+                            multipleFrames.flag();
+                        }
                     }
                 });
 

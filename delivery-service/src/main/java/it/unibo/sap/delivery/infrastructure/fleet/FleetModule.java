@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
 
 public class FleetModule implements FleetPort, OutputAdapter {
 
+    private static final double SIMULATION_SPEED_FACTOR = 0.2;
+
     private final InMemoryDroneRepository drones;
     private DroneTelemetrySink telemetrySink;
     private final double droneSpeedUnitsPerSecond;
@@ -138,7 +140,7 @@ public class FleetModule implements FleetPort, OutputAdapter {
             final Coordinates destination = deliveryDestination.get(deliveryId);
             if (deliveryId != null && destination != null) {
                 final DroneSimulator sim = new DroneSimulator(drone, deliveryId, destination,
-                        telemetrySink, droneSpeedUnitsPerSecond * 0.5);
+                        telemetrySink, droneSpeedUnitsPerSecond * SIMULATION_SPEED_FACTOR);
                 simulators.put(deliveryId, sim);
                 sim.start();
             }
