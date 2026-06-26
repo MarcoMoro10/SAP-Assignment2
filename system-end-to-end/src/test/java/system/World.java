@@ -79,7 +79,8 @@ public final class World {
                 .put("weight", weight)
                 .put("startingPlace", parsePlace(pickup))
                 .put("destinationPlace", parsePlace(destination))
-                .put("immediate", true);
+                .put("immediate", true)
+                .put("deadlineMinutes", 60);
         post("/api/v1/user-sessions/" + sessionId + "/create-delivery", body);
         if (lastStatus == 201) {
             this.deliveryId = lastBody.getString("deliveryId");

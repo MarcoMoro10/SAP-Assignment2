@@ -57,7 +57,7 @@ class PrometheusDeliveryMetricsTest {
     @Test
     void countersAndGaugeReflectTheDeliveryLifecycle() throws Exception {
         final CreateDeliveryResult created = service.createDelivery(new CreateDeliveryCommand(
-                "user-1", 2.0, "via Emilia", 9, "via Veneto", 5, true, null, 0));
+                "user-1", 2.0, "via Emilia", 9, "via Veneto", 5, true, null, 60));
 
         assertEquals(1.0, metric("created_deliveries"));
         assertEquals(1.0, metric("deliveries_in_progress"));

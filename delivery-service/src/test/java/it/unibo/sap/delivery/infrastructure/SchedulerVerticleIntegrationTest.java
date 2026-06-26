@@ -62,7 +62,7 @@ class SchedulerVerticleIntegrationTest {
 
         final LocalDateTime slot = LocalDateTime.now().plusSeconds(2);
         final CreateDeliveryResult created = deliveryService.createDelivery(new CreateDeliveryCommand(
-                "user-1", 2.0, "via Emilia", 9, "via Veneto", 5, false, slot, 0));
+                "user-1", 2.0, "via Emilia", 9, "via Veneto", 5, false, slot, 60));
         assertEquals(DeliveryStatus.SCHEDULED.name(), created.status());
         final String deliveryId = created.deliveryId();
 

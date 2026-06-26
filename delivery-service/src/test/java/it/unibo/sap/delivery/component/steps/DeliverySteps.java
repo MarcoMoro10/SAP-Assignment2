@@ -35,6 +35,18 @@ public class DeliverySteps {
         create(weight, from, to, sender, true, null);
     }
 
+    @When("I create an immediate delivery of weight {string} kg from {string} to {string} as {string} without a deadline")
+    public void createImmediateWithoutDeadline(final String weight, final String from, final String to,
+                                               final String sender) {
+        final JsonObject body = new JsonObject()
+                .put("senderId", sender)
+                .put("weight", Double.parseDouble(weight))
+                .put("startingPlace", address(from))
+                .put("destinationPlace", address(to))
+                .put("immediate", true);
+        post("/api/v1/deliveries", body);
+    }
+
     @When("I create a delivery of weight {string} kg from {string} to {string} scheduled in {string} days as {string}")
     public void createScheduled(final String weight, final String from, final String to,
                                 final String days, final String sender) {
@@ -193,7 +205,8 @@ public class DeliverySteps {
                 .put("weight", Double.parseDouble(weight))
                 .put("startingPlace", address(from))
                 .put("destinationPlace", address(to))
-                .put("immediate", immediate);
+                .put("immediate", immediate)
+                .put("deadlineMinutes", 60);
         if (scheduledAt != null) {
             body.put("scheduledAt", scheduledAt);
         }

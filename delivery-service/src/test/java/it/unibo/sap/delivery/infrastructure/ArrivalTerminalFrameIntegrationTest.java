@@ -77,7 +77,7 @@ class ArrivalTerminalFrameIntegrationTest {
     @Test
     void onDroneArrivedPushesTheFinalDeliveredFrameToTheTrackingClientBeforeClose() {
         final CreateDeliveryResult created = deliveryService.createDelivery(new CreateDeliveryCommand(
-                SENDER_ID, 2.0, "via Emilia", 9, "via Veneto", 5, true, null, 0));
+                SENDER_ID, 2.0, "via Emilia", 9, "via Veneto", 5, true, null, 60));
         final String deliveryId = created.deliveryId();
         final TrackingHandle handle = deliveryService.startTracking(deliveryId, SENDER_ID);
 

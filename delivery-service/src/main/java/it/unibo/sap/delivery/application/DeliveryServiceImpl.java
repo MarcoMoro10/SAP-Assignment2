@@ -59,6 +59,9 @@ public class DeliveryServiceImpl implements DeliveryService {
 
     @Override
     public CreateDeliveryResult createDelivery(final CreateDeliveryCommand cmd) {
+        if (cmd.deadlineMinutes() <= 0) {
+            throw new BadRequestException("deadlineMinutes is required and must be greater than 0");
+        }
         final Coordinates pickupCoord = geocode(cmd.startStreet(), cmd.startNumber());
         final Coordinates destCoord = geocode(cmd.destinationStreet(), cmd.destinationNumber());
 
@@ -66,7 +69,7 @@ public class DeliveryServiceImpl implements DeliveryService {
         final Location pickup = Location.of(pickupCoord, cmd.startStreet() + ", " + cmd.startNumber());
         final Location destination = Location.of(destCoord, cmd.destinationStreet() + ", " + cmd.destinationNumber());
         final RequestedDateTime when = buildRequestedDateTime(cmd);
-        final Deadline deadline = cmd.deadlineMinutes() > 0 ? Deadline.ofMinutes(cmd.deadlineMinutes()) : null;
+        final Deadline deadline = Deadline.ofMinutes(cmd.deadlineMinutes());
 
         final DeliveryRequest request = new DeliveryRequest(parcel, pickup, destination, when, deadline);
         final Delivery delivery = Delivery.createRequest(SenderId.of(cmd.senderId()), request);

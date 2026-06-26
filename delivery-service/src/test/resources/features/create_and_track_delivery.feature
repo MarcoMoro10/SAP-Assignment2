@@ -21,6 +21,10 @@ Feature: Create and track a delivery (component, REST black-box)
     When I create an immediate delivery of weight "2" kg from "xxxxx" to "via Veneto, 5" as "user-1"
     Then the response status is 400 with error "Invalid address"
 
+  Scenario: Delivery creation without a deadline is rejected
+    When I create an immediate delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" as "user-1" without a deadline
+    Then the response status is 400 with error "deadlineMinutes is required and must be greater than 0"
+
   Scenario: A scheduled delivery with a past shipping time is rejected
     When I create a delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" scheduled in "-1" days as "user-1"
     Then the response status is 400 with error "Invalid shipping time"

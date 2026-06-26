@@ -335,6 +335,7 @@ components:
         - weight
         - startingPlace
         - destinationPlace
+        - deadlineMinutes
       properties:
         senderId:
           type: string
@@ -362,9 +363,11 @@ components:
           example: "2026-06-10T10:00:00+02:00"
         deadlineMinutes:
           type: integer
+          minimum: 1
           description: |-
-            Optional maximum elapsed time (deadline) within which the delivery
-            must complete, in minutes.
+            Mandatory maximum elapsed time (deadline) within which the delivery
+            must complete, in minutes. Must be greater than 0;
+            a missing or non-positive value is rejected with 400.
           example: 30
 
     CreateDeliveryResponse:

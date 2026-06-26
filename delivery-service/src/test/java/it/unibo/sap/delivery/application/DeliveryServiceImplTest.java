@@ -43,7 +43,7 @@ class DeliveryServiceImplTest {
 
     private static CreateDeliveryCommand immediate(final String sender, final double weight) {
         return new CreateDeliveryCommand(sender, weight,
-                "via Emilia", 9, "via Veneto", 5, true, null, 0);
+                "via Emilia", 9, "via Veneto", 5, true, null, 60);
     }
 
     @Test
@@ -69,7 +69,7 @@ class DeliveryServiceImplTest {
     @Test
     void createWithInvalidAddressIsBadRequest() {
         final CreateDeliveryCommand cmd = new CreateDeliveryCommand("user-1", 2.0,
-                "via Emilia", 0, "via Veneto", 5, true, null, 0);
+                "via Emilia", 0, "via Veneto", 5, true, null, 60);
         final BadRequestException ex = assertThrows(BadRequestException.class,
                 () -> service.createDelivery(cmd));
         assertEquals("Invalid address", ex.getMessage());
@@ -78,7 +78,7 @@ class DeliveryServiceImplTest {
     @Test
     void createScheduledReservesADroneAndGoesScheduled() {
         final CreateDeliveryCommand cmd = new CreateDeliveryCommand("user-1", 2.0,
-                "via Emilia", 9, "via Veneto", 5, false, LocalDateTime.now().plusDays(2), 0);
+                "via Emilia", 9, "via Veneto", 5, false, LocalDateTime.now().plusDays(2), 60);
         final CreateDeliveryResult result = service.createDelivery(cmd);
 
         assertEquals(DeliveryStatus.SCHEDULED.name(), result.status());
@@ -95,7 +95,7 @@ class DeliveryServiceImplTest {
     @Test
     void cancelScheduledDeliveryReleasesReservation() {
         final CreateDeliveryCommand cmd = new CreateDeliveryCommand("user-1", 2.0,
-                "via Emilia", 9, "via Veneto", 5, false, LocalDateTime.now().plusDays(2), 0);
+                "via Emilia", 9, "via Veneto", 5, false, LocalDateTime.now().plusDays(2), 60);
         final CreateDeliveryResult result = service.createDelivery(cmd);
 
         service.cancelDelivery(result.deliveryId(), "user-1");
@@ -131,7 +131,7 @@ class DeliveryServiceImplTest {
     @Test
     void assignDueScheduledDeliveriesStartsThemWhenSlotIsReached() {
         final CreateDeliveryCommand cmd = new CreateDeliveryCommand("user-1", 2.0,
-                "via Emilia", 9, "via Veneto", 5, false, LocalDateTime.now().plusMinutes(1), 0);
+                "via Emilia", 9, "via Veneto", 5, false, LocalDateTime.now().plusMinutes(1), 60);
         final CreateDeliveryResult result = service.createDelivery(cmd);
         assertEquals(DeliveryStatus.SCHEDULED.name(), result.status());
 
