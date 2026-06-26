@@ -10,7 +10,6 @@ import java.util.Optional;
 
 public interface DeliveryService extends it.unibo.sap.common.hexagonal.InputPort {
 
-
     CreateDeliveryResult createDelivery(CreateDeliveryCommand command);
 
     void cancelDelivery(String deliveryId, String senderId);

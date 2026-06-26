@@ -79,7 +79,6 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
                 .sendJsonObject(body, ar -> {
                     if (ar.succeeded()) {
                         final int statusCode = ar.result().statusCode();
-                        // Mirror login: success only on the expected 2xx; 400/409 and network errors fail.
                         if (statusCode >= 200 && statusCode < 300) {
                             circuitBreaker.recordSuccess();
                         } else {

@@ -8,9 +8,6 @@ public class AccountRecord {
     public String role;
     public long whenCreated;
 
-    public AccountRecord() {
-    }
-
     public AccountRecord(final String accountId, final String username, final String passwordHash,
                          final String role, final long whenCreated) {
         this.accountId = accountId;

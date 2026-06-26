@@ -29,9 +29,6 @@ class PerformanceTest {
     private static final int REQUESTS = 1000;
     private static final int WARMUP = 500;
     private static final double MAX_AVERAGE_SECONDS = 0.1;
-    // Cap simultaneous in-flight requests: 1000 unbounded connects storm the listen backlog
-    // (ConnectException), while a single HTTP/2 connection hits "too many concurrent streams". HTTP/1.1
-    // + a bounded pool keeps the load genuinely concurrent without those client/connection artifacts.
     private static final int MAX_IN_FLIGHT = 64;
     private static final HttpRequest PING = HttpRequest.newBuilder(
                     URI.create("http://" + Setup.HOST + ":" + Setup.GATEWAY_PORT + "/api/v1/health"))
@@ -47,8 +44,6 @@ class PerformanceTest {
 
     @Test
     void averageResponseTimeStaysUnderTheBudget() throws Exception {
-        // Warm up the JVMs, the JIT and the gateway -> downstream connection pools so we measure the
-        // steady-state responsiveness rather than the first cold burst right after startup.
         runLoad(WARMUP);
 
         final double requestsBefore = Setup.gatewayMetric("rest_requests");
@@ -56,14 +51,11 @@ class PerformanceTest {
 
         final int ok = runLoad(REQUESTS);
 
-        // Client-side, fully deterministic: every one of our 1000 requests got a 200.
         assertThat(ok).as("all %d requests should succeed", REQUESTS).isEqualTo(REQUESTS);
 
         final double requestsDelta = Setup.gatewayMetric("rest_requests") - requestsBefore;
         final double timeDelta = Setup.gatewayMetric("request_response_time_seconds") - timeBefore;
 
-        // The gateway must have counted at least our 1000; a small surplus is the container's own
-        // health-check (and Prometheus) probing /api/v1/health on the same cumulative counter.
         final long counted = Math.round(requestsDelta);
         assertThat(counted)
                 .as("the gateway must have counted at least the %d issued requests", REQUESTS)
@@ -77,7 +69,6 @@ class PerformanceTest {
                 .isLessThan(MAX_AVERAGE_SECONDS);
     }
 
-    /** Fires {@code count} requests, each on its own virtual thread, capped at {@link #MAX_IN_FLIGHT}. */
     private static int runLoad(final int count) throws Exception {
         final AtomicInteger ok = new AtomicInteger(0);
         final Semaphore inFlight = new Semaphore(MAX_IN_FLIGHT);
@@ -103,7 +94,6 @@ class PerformanceTest {
         return ok.get();
     }
 
-    /** Sends one request, retrying once on a transient connection hiccup during ramp-up. */
     private static boolean sendOnce() throws Exception {
         try {
             return HTTP.send(PING, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;

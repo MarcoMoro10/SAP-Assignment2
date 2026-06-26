@@ -3,7 +3,6 @@ package it.unibo.sap.delivery.domain.fleet;
 import it.unibo.sap.common.ddd.Identifier;
 
 import java.util.Objects;
-import java.util.UUID;
 
 public final class DroneId implements Identifier<String> {
 
@@ -16,10 +15,6 @@ public final class DroneId implements Identifier<String> {
 
     public static DroneId of(final String value) {
         return new DroneId(value);
-    }
-
-    public static DroneId generate() {
-        return new DroneId(UUID.randomUUID().toString());
     }
 
     @Override
