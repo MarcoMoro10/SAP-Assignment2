@@ -83,6 +83,23 @@ public class DeliverySteps {
         assertEquals(status, lastBody.getString("status"));
     }
 
+    @When("I cancel that delivery as {string}")
+    public void cancelThatDelivery(final String sender) {
+        cancel(createdDeliveryId, sender);
+    }
+
+    @Then("the cancellation succeeds")
+    public void cancellationSucceeds() {
+        assertEquals(200, lastStatus);
+        assertEquals("CANCELLED", lastBody.getString("status"));
+    }
+
+    @Then("the cancellation is rejected because the delivery is in flight")
+    public void cancellationRejectedInFlight() {
+        assertEquals(409, lastStatus);
+        assertEquals("Delivery cannot be cancelled once in flight", lastBody.getString("error"));
+    }
+
     @When("I start tracking that delivery as {string}")
     public void startTrackingThatDelivery(final String sender) {
         track(createdDeliveryId, sender);
@@ -223,6 +240,10 @@ public class DeliverySteps {
 
     private void track(final String deliveryId, final String sender) {
         post("/api/v1/deliveries/" + deliveryId + "/track", new JsonObject().put("senderId", sender));
+    }
+
+    private void cancel(final String deliveryId, final String sender) {
+        post("/api/v1/deliveries/" + deliveryId + "/cancel", new JsonObject().put("senderId", sender));
     }
 
     /** Splits "via Emilia, 9" into {street:"via Emilia", number:9}; "xxxxx" -> number 0 (invalid). */

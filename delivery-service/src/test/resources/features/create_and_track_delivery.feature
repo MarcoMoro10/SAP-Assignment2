@@ -13,6 +13,20 @@ Feature: Create and track a delivery (component, REST black-box)
     Then the delivery is created with status "SCHEDULED"
     And a drone is assigned to the delivery
 
+  Scenario: Cancel a scheduled delivery
+    When I create a delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" scheduled in "2" days as "user-1"
+    Then the delivery is created with status "SCHEDULED"
+    When I cancel that delivery as "user-1"
+    Then the cancellation succeeds
+    When I request the detail of that delivery as "user-1"
+    Then the delivery detail shows status "CANCELLED"
+
+  Scenario: Cancelling a delivery in flight is rejected
+    When I create an immediate delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" as "user-1"
+    Then the delivery is created with status "IN_PROGRESS"
+    When I cancel that delivery as "user-1"
+    Then the cancellation is rejected because the delivery is in flight
+
   Scenario: Delivery rejected because the package is too heavy for any drone
     When I create an immediate delivery of weight "12" kg from "via Emilia, 9" to "via Veneto, 5" as "user-1"
     Then the response status is 422 with error "No drone can carry this package"
