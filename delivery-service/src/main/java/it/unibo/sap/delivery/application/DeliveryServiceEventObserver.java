@@ -9,12 +9,9 @@ public interface DeliveryServiceEventObserver extends OutputPort {
 
     void onDeliveryCompleted();
 
-    void onDeliveryAbolished();
-
     DeliveryServiceEventObserver NO_OP = new DeliveryServiceEventObserver() {
         @Override public void onDeliveryCreated() { }
         @Override public void onDeliveryInProgress() { }
         @Override public void onDeliveryCompleted() { }
-        @Override public void onDeliveryAbolished() { }
     };
 }

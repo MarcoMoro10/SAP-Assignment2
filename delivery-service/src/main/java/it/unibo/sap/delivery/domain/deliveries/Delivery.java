@@ -2,7 +2,6 @@ package it.unibo.sap.delivery.domain.deliveries;
 
 import it.unibo.sap.common.ddd.AggregateRoot;
 import it.unibo.sap.common.ddd.DomainEvent;
-import it.unibo.sap.delivery.domain.deliveries.events.DeliveryAbolished;
 import it.unibo.sap.delivery.domain.deliveries.events.DeliveryBegun;
 import it.unibo.sap.delivery.domain.deliveries.events.DeliveryCancelled;
 import it.unibo.sap.delivery.domain.deliveries.events.DeliveryCompleted;
@@ -112,11 +111,6 @@ public class Delivery implements AggregateRoot<DeliveryId> {
         recordAndApply(new DeliveryCancelled(id, Instant.now()));
     }
 
-    public void abolish() {
-        requireStatus(DeliveryStatus.IN_PROGRESS, "abolish");
-        recordAndApply(new DeliveryAbolished(id, Instant.now()));
-    }
-
     public void apply(final DomainEvent event) {
         switch (event) {
             case DeliveryRequestCreated e -> {
@@ -141,7 +135,6 @@ public class Delivery implements AggregateRoot<DeliveryId> {
                 this.estimatedTimeRemaining = EstimatedTimeRemaining.zero();
             }
             case DeliveryCancelled _ -> this.status = DeliveryStatus.CANCELLED;
-            case DeliveryAbolished _ -> this.status = DeliveryStatus.ABOLISHED;
             default -> throw new IllegalArgumentException(
                     "Unknown delivery event: " + event.getClass().getName());
         }

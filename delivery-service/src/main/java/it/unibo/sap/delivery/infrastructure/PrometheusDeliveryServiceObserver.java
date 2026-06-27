@@ -60,11 +60,6 @@ public class PrometheusDeliveryServiceObserver implements DeliveryServiceEventOb
         nDeliveriesDelivered.inc();
     }
 
-    @Override
-    public void onDeliveryAbolished() {
-        nDeliveriesOnDelivery.dec();
-    }
-
     public void stop() {
         if (server != null) {
             server.stop();

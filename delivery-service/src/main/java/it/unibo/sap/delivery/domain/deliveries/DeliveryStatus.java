@@ -8,6 +8,5 @@ public enum DeliveryStatus {
     IN_PROGRESS,
     DELIVERED,
     REJECTED,
-    CANCELLED,
-    ABOLISHED
+    CANCELLED
 }

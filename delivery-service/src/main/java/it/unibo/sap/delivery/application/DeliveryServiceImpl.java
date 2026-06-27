@@ -155,12 +155,9 @@ public class DeliveryServiceImpl implements DeliveryService {
             return Optional.empty();
         }
         final Delivery d = found.get();
-        final Coordinates c = d.getRequest().destination().coordinates();
         return Optional.of(new DeliveryTrackingView(
                 d.getId().value(),
                 d.getStatus(),
-                c.latitude(),
-                c.longitude(),
                 d.getEstimatedTimeRemaining().toSeconds()));
     }
 

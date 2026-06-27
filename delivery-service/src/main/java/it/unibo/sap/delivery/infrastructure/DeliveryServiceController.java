@@ -17,6 +17,7 @@ import it.unibo.sap.delivery.application.DeliveryService;
 import it.unibo.sap.delivery.application.TrackingHandle;
 import it.unibo.sap.delivery.domain.deliveries.DeliveryStatus;
 import it.unibo.sap.delivery.domain.deliveries.DeliveryTrackingView;
+import it.unibo.sap.delivery.domain.deliveries.EstimatedTimeRemaining;
 
 import java.time.LocalDateTime;
 
@@ -168,8 +169,7 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
     }
 
     private static boolean isTerminalStatus(final String status) {
-        return DeliveryStatus.DELIVERED.name().equals(status)
-                || DeliveryStatus.ABOLISHED.name().equals(status);
+        return DeliveryStatus.DELIVERED.name().equals(status);
     }
 
     private CreateDeliveryCommand toCommand(final JsonObject body) {
@@ -214,12 +214,8 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
                 .put("deliveryId", v.deliveryId())
                 .put("status", v.status().name())
                 .put("estimatedTimeRemainingSeconds", v.estimatedTimeRemainingSeconds())
-                .put("estimatedTimeRemainingFormatted", formatEtr(v.estimatedTimeRemainingSeconds()));
-    }
-
-    private static String formatEtr(final long totalSeconds) {
-        final long s = Math.max(0, totalSeconds);
-        return String.format("%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60);
+                .put("estimatedTimeRemainingFormatted",
+                        EstimatedTimeRemaining.formatSeconds(v.estimatedTimeRemainingSeconds()));
     }
 
     private void error(final RoutingContext ctx, final int status, final String message) {

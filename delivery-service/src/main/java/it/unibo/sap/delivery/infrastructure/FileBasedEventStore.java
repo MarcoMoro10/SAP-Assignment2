@@ -12,7 +12,6 @@ import it.unibo.sap.delivery.domain.deliveries.Location;
 import it.unibo.sap.delivery.domain.deliveries.Package;
 import it.unibo.sap.delivery.domain.deliveries.RequestedDateTime;
 import it.unibo.sap.delivery.domain.deliveries.SenderId;
-import it.unibo.sap.delivery.domain.deliveries.events.DeliveryAbolished;
 import it.unibo.sap.delivery.domain.deliveries.events.DeliveryBegun;
 import it.unibo.sap.delivery.domain.deliveries.events.DeliveryCancelled;
 import it.unibo.sap.delivery.domain.deliveries.events.DeliveryCompleted;
@@ -139,7 +138,6 @@ public class FileBasedEventStore implements EventStore, OutputAdapter {
             case DeliveryBegun _ -> s.eventType = "DeliveryBegun";
             case DeliveryCompleted _ -> s.eventType = "DeliveryCompleted";
             case DeliveryCancelled _ -> s.eventType = "DeliveryCancelled";
-            case DeliveryAbolished _ -> s.eventType = "DeliveryAbolished";
             default -> throw new IllegalArgumentException(
                     "Cannot persist unsupported delivery event: " + event.getClass().getName());
         }
@@ -161,7 +159,6 @@ public class FileBasedEventStore implements EventStore, OutputAdapter {
             case "DeliveryBegun" -> new DeliveryBegun(id, occurredOn);
             case "DeliveryCompleted" -> new DeliveryCompleted(id, occurredOn);
             case "DeliveryCancelled" -> new DeliveryCancelled(id, occurredOn);
-            case "DeliveryAbolished" -> new DeliveryAbolished(id, occurredOn);
             default -> throw new IllegalStateException("Unknown stored event type: " + s.eventType);
         };
     }

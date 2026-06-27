@@ -30,4 +30,9 @@ public record EstimatedTimeRemaining(Duration value) implements ValueObject {
         return value.getSeconds();
     }
 
+    public static String formatSeconds(final long totalSeconds) {
+        final long s = Math.max(0, totalSeconds);
+        return String.format("%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60);
+    }
+
 }

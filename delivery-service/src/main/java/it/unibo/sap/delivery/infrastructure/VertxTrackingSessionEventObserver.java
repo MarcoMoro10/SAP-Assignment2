@@ -4,6 +4,7 @@ import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
 import it.unibo.sap.common.hexagonal.OutputAdapter;
 import it.unibo.sap.delivery.application.TrackingSessionEventObserver;
+import it.unibo.sap.delivery.domain.deliveries.EstimatedTimeRemaining;
 
 public class VertxTrackingSessionEventObserver implements TrackingSessionEventObserver, OutputAdapter {
 
@@ -28,12 +29,8 @@ public class VertxTrackingSessionEventObserver implements TrackingSessionEventOb
                         .put("latitude", latitude)
                         .put("longitude", longitude))
                 .put("estimatedTimeRemainingSeconds", estimatedTimeRemainingSeconds)
-                .put("estimatedTimeRemainingFormatted", formatEtr(estimatedTimeRemainingSeconds));
+                .put("estimatedTimeRemainingFormatted",
+                        EstimatedTimeRemaining.formatSeconds(estimatedTimeRemainingSeconds));
         eventBus.publish(TRACKING_ADDRESS_PREFIX + deliveryId, update);
-    }
-
-    private static String formatEtr(final long totalSeconds) {
-        final long s = Math.max(0, totalSeconds);
-        return String.format("%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60);
     }
 }
