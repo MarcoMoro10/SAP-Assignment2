@@ -5,7 +5,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.client.WebClient;
-import it.unibo.sap.gateway.application.SessionRepository;
 import it.unibo.sap.gateway.application.SessionService;
 import it.unibo.sap.gateway.application.SessionServiceImpl;
 import it.unibo.sap.gateway.support.FakeAccountService;
