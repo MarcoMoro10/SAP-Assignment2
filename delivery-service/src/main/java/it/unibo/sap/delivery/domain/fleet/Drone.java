@@ -13,10 +13,10 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 public class Drone implements AggregateRoot<DroneId> {
 
@@ -25,7 +25,7 @@ public class Drone implements AggregateRoot<DroneId> {
     private Position position;
     private final PayloadCapacity payloadCapacity;
     private String assignedDeliveryId;
-    private final Set<LocalDateTime> reservedSlots = new HashSet<>();
+    private final Map<String, LocalDateTime> reservationsByDelivery = new HashMap<>();
     private final List<DomainEvent> domainEvents = new ArrayList<>();
 
     private Drone(final DroneId id, final DroneStatus status, final Position position,
@@ -50,7 +50,7 @@ public class Drone implements AggregateRoot<DroneId> {
     }
 
     public boolean isSlotFree(final LocalDateTime slot) {
-        return !reservedSlots.contains(slot);
+        return !reservationsByDelivery.containsValue(slot);
     }
 
 
@@ -58,14 +58,14 @@ public class Drone implements AggregateRoot<DroneId> {
         if (!isSlotFree(slot)) {
             throw new IllegalStateException("No drone available for the requested time");
         }
-        reservedSlots.add(slot);
+        reservationsByDelivery.put(deliveryId, slot);
         this.status = DroneStatus.RESERVED;
         registerEvent(new DroneReserved(id, deliveryId, slot, Instant.now()));
     }
 
     public void releaseReservation(final String deliveryId, final LocalDateTime slot) {
-        reservedSlots.remove(slot);
-        if (reservedSlots.isEmpty()) {
+        reservationsByDelivery.remove(deliveryId);
+        if (reservationsByDelivery.isEmpty()) {
             this.status = DroneStatus.AVAILABLE;
         }
         this.assignedDeliveryId = null;
