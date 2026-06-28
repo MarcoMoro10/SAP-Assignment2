@@ -41,12 +41,28 @@ public class FileBasedEventStore implements EventStore, OutputAdapter {
     private final List<StoredDeliveryEvent> log = new ArrayList<>();
 
     public FileBasedEventStore() {
-        this(DEFAULT_FILE);
+        this(DEFAULT_FILE, false);
     }
 
     public FileBasedEventStore(final String filePath) {
+        this(filePath, true);
+    }
+
+    private FileBasedEventStore(final String filePath, final boolean loadExisting) {
         this.file = Path.of(filePath);
-        load();
+        if (loadExisting) {
+            load();
+        } else {
+            reset();
+        }
+    }
+
+    private void reset() {
+        try {
+            Files.deleteIfExists(file);
+        } catch (final IOException e) {
+            throw new UncheckedIOException("Failed to reset delivery events at " + file, e);
+        }
     }
 
     @Override
