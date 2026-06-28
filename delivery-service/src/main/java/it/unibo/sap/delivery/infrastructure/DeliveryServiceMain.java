@@ -41,13 +41,14 @@ public class DeliveryServiceMain {
 
         final InMemoryDroneRepository droneRepository = new InMemoryDroneRepository();
         final FleetModule fleetModule = new FleetModule(droneRepository, DRONE_SPEED_UNITS_PER_SECOND);
+        final InMemoryEstimatedTimeView estimatedTimeView = new InMemoryEstimatedTimeView();
 
         final DeliveryService deliveryService = new DeliveryServiceImpl(
-                deliveryRepository, fleetModule, geocoding, trackingRegistry, metricsObserver);
+                deliveryRepository, fleetModule, geocoding, trackingRegistry, metricsObserver, estimatedTimeView);
 
         final DroneEventHandler droneEventHandler = new DroneEventHandler(
                 deliveryRepository, trackingRegistry, trackingObserver,
-                fleetModule, DRONE_SPEED_UNITS_PER_SECOND, metricsObserver);
+                fleetModule, DRONE_SPEED_UNITS_PER_SECOND, metricsObserver, estimatedTimeView);
         fleetModule.setTelemetrySink(new DroneEventHandlerSink(droneEventHandler));
 
         FleetSeeder.seed(droneRepository);

@@ -36,6 +36,7 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final GeocodingPort geocodingPort;
     private final TrackingSessionRegistry trackingSessions;
     private final DeliveryServiceEventObserver metricsObserver;
+    private final EstimatedTimeView estimatedTimeView;
 
     public DeliveryServiceImpl(final DeliveryRepository deliveryRepository,
                                final FleetPort fleetPort,
@@ -50,11 +51,22 @@ public class DeliveryServiceImpl implements DeliveryService {
                                final GeocodingPort geocodingPort,
                                final TrackingSessionRegistry trackingSessions,
                                final DeliveryServiceEventObserver metricsObserver) {
+        this(deliveryRepository, fleetPort, geocodingPort, trackingSessions, metricsObserver,
+                EstimatedTimeView.NO_OP);
+    }
+
+    public DeliveryServiceImpl(final DeliveryRepository deliveryRepository,
+                               final FleetPort fleetPort,
+                               final GeocodingPort geocodingPort,
+                               final TrackingSessionRegistry trackingSessions,
+                               final DeliveryServiceEventObserver metricsObserver,
+                               final EstimatedTimeView estimatedTimeView) {
         this.deliveryRepository = deliveryRepository;
         this.fleetPort = fleetPort;
         this.geocodingPort = geocodingPort;
         this.trackingSessions = trackingSessions;
         this.metricsObserver = metricsObserver;
+        this.estimatedTimeView = estimatedTimeView;
     }
 
     @Override
@@ -158,7 +170,7 @@ public class DeliveryServiceImpl implements DeliveryService {
         return Optional.of(new DeliveryTrackingView(
                 d.getId().value(),
                 d.getStatus(),
-                d.getEstimatedTimeRemaining().toSeconds()));
+                estimatedTimeView.secondsFor(deliveryId)));
     }
 
     @Override

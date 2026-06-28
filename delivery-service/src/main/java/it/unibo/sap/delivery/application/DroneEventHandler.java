@@ -18,6 +18,7 @@ public class DroneEventHandler {
     private final FleetPort fleetPort;
     private final double droneSpeedUnitsPerSecond;
     private final DeliveryServiceEventObserver metricsObserver;
+    private final EstimatedTimeView estimatedTimeView;
 
     public DroneEventHandler(final DeliveryRepository deliveryRepository,
                              final TrackingSessionRegistry trackingSessions,
@@ -34,12 +35,24 @@ public class DroneEventHandler {
                              final FleetPort fleetPort,
                              final double droneSpeedUnitsPerSecond,
                              final DeliveryServiceEventObserver metricsObserver) {
+        this(deliveryRepository, trackingSessions, trackingObserver, fleetPort, droneSpeedUnitsPerSecond,
+                metricsObserver, EstimatedTimeView.NO_OP);
+    }
+
+    public DroneEventHandler(final DeliveryRepository deliveryRepository,
+                             final TrackingSessionRegistry trackingSessions,
+                             final TrackingSessionEventObserver trackingObserver,
+                             final FleetPort fleetPort,
+                             final double droneSpeedUnitsPerSecond,
+                             final DeliveryServiceEventObserver metricsObserver,
+                             final EstimatedTimeView estimatedTimeView) {
         this.deliveryRepository = deliveryRepository;
         this.trackingSessions = trackingSessions;
         this.trackingObserver = trackingObserver;
         this.fleetPort = fleetPort;
         this.droneSpeedUnitsPerSecond = droneSpeedUnitsPerSecond;
         this.metricsObserver = metricsObserver;
+        this.estimatedTimeView = estimatedTimeView;
     }
 
     public void onDronePositionUpdated(final String deliveryId, final double latitude, final double longitude) {
@@ -59,6 +72,8 @@ public class DroneEventHandler {
         deliveryRepository.save(delivery);
         delivery.clearDomainEvents();
 
+        estimatedTimeView.update(deliveryId, etr.toSeconds());
+
         pushToTrackers(delivery, latitude, longitude, etr.toSeconds());
     }
 
@@ -75,6 +90,8 @@ public class DroneEventHandler {
         deliveryRepository.save(delivery);
         delivery.clearDomainEvents();
         metricsObserver.onDeliveryCompleted();
+
+        estimatedTimeView.clear(deliveryId);
 
         fleetPort.completeDelivery(deliveryId);
 
