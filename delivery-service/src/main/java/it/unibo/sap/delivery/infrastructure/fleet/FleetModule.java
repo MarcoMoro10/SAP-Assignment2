@@ -78,6 +78,12 @@ public class FleetModule implements FleetPort, OutputAdapter {
 
     @Override
     public FleetReservationResult reserveDroneForSlot(final FleetFeasibilityRequest req, final LocalDateTime slot) {
+        final boolean anyCanCarry = drones.findAll().stream()
+                .anyMatch(d -> d.canCarry(req.weightKg()));
+        if (!anyCanCarry) {
+            return FleetReservationResult.rejected("No drone can carry this package");
+        }
+
         final Optional<Drone> chosen = drones.findAll().stream()
                 .filter(d -> d.canCarry(req.weightKg()))
                 .filter(d -> d.isSlotFree(slot))
