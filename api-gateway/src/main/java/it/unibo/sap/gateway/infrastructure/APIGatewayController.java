@@ -207,8 +207,8 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
                     final int status = result.containsKey("_statusCode")
                             ? result.getInteger("_statusCode") : 200;
                     result.remove("_statusCode");
-                    if (status == 200 || status == 201) {
-                        writeJson(ctx, status, rewriteTrackingUrl(result));
+                    if (status >= 200 && status < 300) {
+                        writeJson(ctx, 200, rewriteTrackingUrl(result));
                     } else {
                         writeJson(ctx, status, result);
                     }
