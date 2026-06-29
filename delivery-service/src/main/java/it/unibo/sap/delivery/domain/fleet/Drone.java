@@ -65,11 +65,19 @@ public class Drone implements AggregateRoot<DroneId> {
 
     public void releaseReservation(final String deliveryId, final LocalDateTime slot) {
         reservationsByDelivery.remove(deliveryId);
-        if (reservationsByDelivery.isEmpty()) {
-            this.status = DroneStatus.AVAILABLE;
-        }
         this.assignedDeliveryId = null;
+        syncStatusToReservations();
         registerEvent(new ReservationReleased(id, deliveryId, Instant.now()));
+    }
+
+    public void completeReservation(final String deliveryId) {
+        reservationsByDelivery.remove(deliveryId);
+        this.assignedDeliveryId = null;
+        syncStatusToReservations();
+    }
+
+    public int reservationCount() {
+        return reservationsByDelivery.size();
     }
 
     public void assign(final String deliveryId) {
@@ -95,6 +103,12 @@ public class Drone implements AggregateRoot<DroneId> {
     public void becomeAvailable() {
         this.status = DroneStatus.AVAILABLE;
         this.assignedDeliveryId = null;
+    }
+
+    private void syncStatusToReservations() {
+        this.status = reservationsByDelivery.isEmpty()
+                ? DroneStatus.AVAILABLE
+                : DroneStatus.RESERVED;
     }
 
     public void goOutOfService() {

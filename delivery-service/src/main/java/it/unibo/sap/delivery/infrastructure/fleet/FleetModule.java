@@ -81,7 +81,8 @@ public class FleetModule implements FleetPort, OutputAdapter {
         final Optional<Drone> chosen = drones.findAll().stream()
                 .filter(d -> d.canCarry(req.weightKg()))
                 .filter(d -> d.isSlotFree(slot))
-                .findFirst();
+                .min(Comparator.comparingInt(Drone::reservationCount)
+                        .thenComparing(d -> d.getId().value()));
 
         if (chosen.isEmpty()) {
             return FleetReservationResult.rejected("No drone available for the requested time");
@@ -155,7 +156,7 @@ public class FleetModule implements FleetPort, OutputAdapter {
         final String droneId = deliveryToDrone.get(deliveryId);
         if (droneId != null) {
             drones.findById(DroneId.of(droneId)).ifPresent(drone -> {
-                drone.becomeAvailable();
+                drone.completeReservation(deliveryId);
                 drones.save(drone);
             });
         }
