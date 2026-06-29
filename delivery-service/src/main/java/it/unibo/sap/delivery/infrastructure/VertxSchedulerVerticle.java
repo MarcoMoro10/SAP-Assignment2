@@ -2,6 +2,7 @@ package it.unibo.sap.delivery.infrastructure;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
+import io.vertx.core.WorkerExecutor;
 import it.unibo.sap.common.hexagonal.InputAdapter;
 import it.unibo.sap.delivery.application.DeliveryService;
 
@@ -14,6 +15,7 @@ public class VertxSchedulerVerticle extends AbstractVerticle implements InputAda
     private final DeliveryService deliveryService;
     private final long tickMillis;
     private long timerId;
+    private WorkerExecutor commandExecutor;
 
     public VertxSchedulerVerticle(final DeliveryService deliveryService) {
         this(deliveryService, DEFAULT_TICK_MILLIS);
@@ -26,11 +28,13 @@ public class VertxSchedulerVerticle extends AbstractVerticle implements InputAda
 
     @Override
     public void start(final Promise<Void> startPromise) {
+        commandExecutor = vertx.createSharedWorkerExecutor(
+                DeliveryServiceController.DOMAIN_COMMAND_EXECUTOR, 1);
         timerId = vertx.setPeriodic(tickMillis, id ->
-                vertx.executeBlocking(() -> {
+                commandExecutor.executeBlocking(() -> {
                     deliveryService.assignDueScheduledDeliveries(LocalDateTime.now());
                     return null;
-                }, false));
+                }, true));
         System.out.println("scheduler verticle started (tick " + tickMillis + "ms)");
         startPromise.complete();
     }
@@ -38,5 +42,8 @@ public class VertxSchedulerVerticle extends AbstractVerticle implements InputAda
     @Override
     public void stop() {
         vertx.cancelTimer(timerId);
+        if (commandExecutor != null) {
+            commandExecutor.close();
+        }
     }
 }

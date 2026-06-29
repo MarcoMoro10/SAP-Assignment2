@@ -2,6 +2,7 @@ package it.unibo.sap.delivery.infrastructure;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
+import io.vertx.core.WorkerExecutor;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -23,8 +24,11 @@ import java.time.LocalDateTime;
 
 public class DeliveryServiceController extends AbstractVerticle implements InputAdapter {
 
+    public static final String DOMAIN_COMMAND_EXECUTOR = "delivery-domain-commands";
+
     private final DeliveryService deliveryService;
     private final int port;
+    private WorkerExecutor commandExecutor;
 
     public DeliveryServiceController(final DeliveryService deliveryService, final int port) {
         this.deliveryService = deliveryService;
@@ -33,6 +37,7 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
 
     @Override
     public void start(final Promise<Void> startPromise) {
+        commandExecutor = vertx.createSharedWorkerExecutor(DOMAIN_COMMAND_EXECUTOR, 1);
         final Router router = Router.router(vertx);
         router.route("/api/v1/*").handler(BodyHandler.create());
         router.get("/api/v1/health").handler(this::handleHealth);
@@ -55,6 +60,13 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
                 });
     }
 
+    @Override
+    public void stop() {
+        if (commandExecutor != null) {
+            commandExecutor.close();
+        }
+    }
+
     private void handleHealth(final RoutingContext ctx) {
         ctx.response().setStatusCode(200)
                 .putHeader("Content-Type", "application/json")
@@ -63,25 +75,35 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
 
     private void handleCreate(final RoutingContext ctx) {
         final JsonObject body = ctx.body().asJsonObject();
+        final CreateDeliveryCommand cmd;
         try {
-            final CreateDeliveryCommand cmd = toCommand(body);
-            final CreateDeliveryResult result = deliveryService.createDelivery(cmd);
-            final JsonObject reply = new JsonObject()
-                    .put("deliveryId", result.deliveryId())
-                    .put("status", result.status());
-            if (result.assignedDroneId() != null) {
-                reply.put("assignedDroneId", result.assignedDroneId());
-            }
-            ctx.response().setStatusCode(201)
-                    .putHeader("Content-Type", "application/json")
-                    .end(reply.encode());
-        } catch (final BadRequestException e) {
+            cmd = toCommand(body);
+        } catch (final BadRequestException | IllegalArgumentException e) {
             error(ctx, 400, e.getMessage());
-        } catch (final ValidationRejectedException e) {
-            error(ctx, 422, e.getMessage());
-        } catch (final IllegalArgumentException e) {
-            error(ctx, 400, e.getMessage());
+            return;
         }
+        commandExecutor.<CreateDeliveryResult>executeBlocking(
+                        () -> deliveryService.createDelivery(cmd), true)
+                .onSuccess(result -> {
+                    final JsonObject reply = new JsonObject()
+                            .put("deliveryId", result.deliveryId())
+                            .put("status", result.status());
+                    if (result.assignedDroneId() != null) {
+                        reply.put("assignedDroneId", result.assignedDroneId());
+                    }
+                    ctx.response().setStatusCode(201)
+                            .putHeader("Content-Type", "application/json")
+                            .end(reply.encode());
+                })
+                .onFailure(e -> {
+                    if (e instanceof ValidationRejectedException) {
+                        error(ctx, 422, e.getMessage());
+                    } else if (e instanceof BadRequestException || e instanceof IllegalArgumentException) {
+                        error(ctx, 400, e.getMessage());
+                    } else {
+                        error(ctx, 500, e.getMessage());
+                    }
+                });
     }
 
     private void handleGet(final RoutingContext ctx) {
@@ -98,20 +120,26 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
         final String deliveryId = ctx.pathParam("deliveryId");
         final JsonObject body = ctx.body().asJsonObject();
         final String senderId = body == null ? null : body.getString("senderId");
-        try {
-            deliveryService.cancelDelivery(deliveryId, senderId);
-            ctx.response().setStatusCode(200)
-                    .putHeader("Content-Type", "application/json")
-                    .end(new JsonObject()
-                            .put("deliveryId", deliveryId)
-                            .put("status", "CANCELLED").encode());
-        } catch (final CannotCancelInFlightException e) {
-            error(ctx, 409, e.getMessage());
-        } catch (final DeliveryNotFoundException e) {
-            error(ctx, 404, e.getMessage());
-        } catch (final IllegalStateException e) {
-            error(ctx, 409, e.getMessage());
-        }
+        commandExecutor.<Void>executeBlocking(() -> {
+                    deliveryService.cancelDelivery(deliveryId, senderId);
+                    return null;
+                }, true)
+                .onSuccess(v -> ctx.response().setStatusCode(200)
+                        .putHeader("Content-Type", "application/json")
+                        .end(new JsonObject()
+                                .put("deliveryId", deliveryId)
+                                .put("status", "CANCELLED").encode()))
+                .onFailure(e -> {
+                    if (e instanceof CannotCancelInFlightException) {
+                        error(ctx, 409, e.getMessage());
+                    } else if (e instanceof DeliveryNotFoundException) {
+                        error(ctx, 404, e.getMessage());
+                    } else if (e instanceof IllegalStateException) {
+                        error(ctx, 409, e.getMessage());
+                    } else {
+                        error(ctx, 500, e.getMessage());
+                    }
+                });
     }
 
     private void handleTrack(final RoutingContext ctx) {
