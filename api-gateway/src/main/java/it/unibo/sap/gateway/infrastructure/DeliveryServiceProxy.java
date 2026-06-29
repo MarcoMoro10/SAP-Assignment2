@@ -95,7 +95,7 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
         return blocking(
                 webClient.post(port, host, "/api/v1/deliveries/" + deliveryId + "/track"),
                 new JsonObject().put("senderId", senderId),
-                HttpResponse::bodyAsJsonObject);
+                resp -> resp.bodyAsJsonObject().put("_statusCode", resp.statusCode()));
     }
 
     @Override

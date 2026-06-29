@@ -203,7 +203,16 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
         final JsonObject body = ctx.body().asJsonObject();
         final String deliveryId = body == null ? null : body.getString("deliveryId");
         dispatch(ctx, () -> sessionService.trackDelivery(sessionId, deliveryId),
-                result -> writeJson(ctx, 200, rewriteTrackingUrl(result)));
+                result -> {
+                    final int status = result.containsKey("_statusCode")
+                            ? result.getInteger("_statusCode") : 200;
+                    result.remove("_statusCode");
+                    if (status == 200 || status == 201) {
+                        writeJson(ctx, status, rewriteTrackingUrl(result));
+                    } else {
+                        writeJson(ctx, status, result);
+                    }
+                });
     }
 
     private JsonObject rewriteTrackingUrl(final JsonObject deliveryResponse) {
