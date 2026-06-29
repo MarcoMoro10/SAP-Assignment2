@@ -79,7 +79,7 @@ class DroneTest {
         final LocalDateTime slot = LocalDateTime.now().plusDays(1);
         drone.reserveSlot("DLV-1", slot);
 
-        drone.releaseReservation("DLV-1", slot);
+        drone.releaseReservation("DLV-1");
 
         assertEquals(DroneStatus.AVAILABLE, drone.getStatus());
         assertTrue(drone.isAvailable());
@@ -88,14 +88,15 @@ class DroneTest {
     @Test
     void releaseReservationFreesDroneEvenWhenSlotPrecisionDiffers() {
         final Drone drone = availableDrone();
-        final LocalDateTime reservedSlot = LocalDateTime.of(2026, 1, 1, 10, 0, 0, 123_000_000);
+        final LocalDateTime highPrecisionSlot = LocalDateTime.of(2026, 1, 1, 10, 0, 0, 123_000_000);
         final LocalDateTime recreatedSlot = LocalDateTime.of(2026, 1, 1, 10, 0);
-        assertFalse(reservedSlot.equals(recreatedSlot), "the two slots must differ for this test to be meaningful");
+        assertFalse(highPrecisionSlot.equals(recreatedSlot),
+                "the reserved slot must be irrecoverable for this test to be meaningful");
 
-        drone.reserveSlot("DLV-1", reservedSlot);
+        drone.reserveSlot("DLV-1", highPrecisionSlot);
         assertEquals(DroneStatus.RESERVED, drone.getStatus());
 
-        drone.releaseReservation("DLV-1", recreatedSlot);
+        drone.releaseReservation("DLV-1");
 
         assertEquals(DroneStatus.AVAILABLE, drone.getStatus());
         assertTrue(drone.isAvailable());

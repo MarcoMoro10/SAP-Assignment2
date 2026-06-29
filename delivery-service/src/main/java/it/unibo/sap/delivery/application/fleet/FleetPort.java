@@ -11,9 +11,9 @@ public interface FleetPort extends OutputPort {
 
     FleetReservationResult reserveDroneForSlot(FleetFeasibilityRequest request, LocalDateTime slot);
 
-    FleetAssignmentResult assignReservedDrone(String deliveryId, LocalDateTime slot);
+    FleetAssignmentResult assignReservedDrone(String deliveryId);
 
-    void releaseReservation(String droneId, String deliveryId, LocalDateTime slot);
+    void releaseReservation(String droneId, String deliveryId);
 
     void startDelivery(String droneId);
 

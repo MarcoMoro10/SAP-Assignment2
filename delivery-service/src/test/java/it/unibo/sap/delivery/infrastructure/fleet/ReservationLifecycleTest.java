@@ -77,7 +77,7 @@ class ReservationLifecycleTest {
         assertEquals(droneId, second.droneId(), "the 7 kg package must reuse the single big drone");
         assertEquals(DroneStatus.RESERVED, drone(droneId).getStatus());
 
-        fleet.releaseReservation(droneId, "B", slotB);
+        fleet.releaseReservation(droneId, "B");
 
         assertEquals(0, drone(droneId).reservationCount());
         assertEquals(DroneStatus.AVAILABLE, drone(droneId).getStatus(),

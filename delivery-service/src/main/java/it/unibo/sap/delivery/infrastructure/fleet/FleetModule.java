@@ -103,7 +103,7 @@ public class FleetModule implements FleetPort, OutputAdapter {
     }
 
     @Override
-    public FleetAssignmentResult assignReservedDrone(final String deliveryId, final LocalDateTime slot) {
+    public FleetAssignmentResult assignReservedDrone(final String deliveryId) {
         final String droneId = deliveryToDrone.get(deliveryId);
         if (droneId == null) {
             return FleetAssignmentResult.rejected("No drone available");
@@ -119,12 +119,12 @@ public class FleetModule implements FleetPort, OutputAdapter {
     }
 
     @Override
-    public void releaseReservation(final String droneId, final String deliveryId, final LocalDateTime slot) {
+    public void releaseReservation(final String droneId, final String deliveryId) {
         if (droneId == null) {
             return;
         }
         drones.findById(DroneId.of(droneId)).ifPresent(drone -> {
-            drone.releaseReservation(deliveryId, slot);
+            drone.releaseReservation(deliveryId);
             drones.save(drone);
         });
         final DroneSimulator sim = simulators.remove(deliveryId);

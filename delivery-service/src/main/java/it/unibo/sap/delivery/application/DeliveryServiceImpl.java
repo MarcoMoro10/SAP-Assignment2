@@ -151,10 +151,9 @@ public class DeliveryServiceImpl implements DeliveryService {
             throw new CannotCancelInFlightException();
         }
         final String droneId = delivery.getAssignedDroneId();
-        final LocalDateTime slot = delivery.getRequest().requestedDateTime().scheduledAt();
         delivery.cancel();
         if (droneId != null) {
-            fleetPort.releaseReservation(droneId, deliveryId, slot);
+            fleetPort.releaseReservation(droneId, deliveryId);
         }
         deliveryRepository.save(delivery);
         delivery.clearDomainEvents();
@@ -191,8 +190,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                 })
                 .toList();
         for (final Delivery d : scheduled) {
-            final LocalDateTime slot = d.getRequest().requestedDateTime().scheduledAt();
-            final FleetAssignmentResult outcome = fleetPort.assignReservedDrone(d.getId().value(), slot);
+            final FleetAssignmentResult outcome = fleetPort.assignReservedDrone(d.getId().value());
             if (outcome.assigned()) {
                 final String droneId = outcome.droneIdOpt().orElseThrow();
                 d.assignDrone(droneId);

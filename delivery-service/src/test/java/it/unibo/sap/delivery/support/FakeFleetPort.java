@@ -50,14 +50,14 @@ public final class FakeFleetPort implements FleetPort {
     }
 
     @Override
-    public FleetAssignmentResult assignReservedDrone(final String deliveryId, final LocalDateTime slot) {
+    public FleetAssignmentResult assignReservedDrone(final String deliveryId) {
         return rejectionReason != null
                 ? FleetAssignmentResult.rejected(rejectionReason)
                 : FleetAssignmentResult.assigned(droneId);
     }
 
     @Override
-    public void releaseReservation(final String droneId, final String deliveryId, final LocalDateTime slot) {
+    public void releaseReservation(final String droneId, final String deliveryId) {
         releasedReservations.add(droneId);
     }
 

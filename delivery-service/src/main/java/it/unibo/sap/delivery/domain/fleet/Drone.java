@@ -59,11 +59,11 @@ public class Drone implements AggregateRoot<DroneId> {
             throw new IllegalStateException("No drone available for the requested time");
         }
         reservationsByDelivery.put(deliveryId, slot);
-        this.status = DroneStatus.RESERVED;
+        syncStatusToReservations();
         registerEvent(new DroneReserved(id, deliveryId, slot, Instant.now()));
     }
 
-    public void releaseReservation(final String deliveryId, final LocalDateTime slot) {
+    public void releaseReservation(final String deliveryId) {
         reservationsByDelivery.remove(deliveryId);
         this.assignedDeliveryId = null;
         syncStatusToReservations();
@@ -98,11 +98,6 @@ public class Drone implements AggregateRoot<DroneId> {
     public void arrived() {
         this.status = DroneStatus.ARRIVED;
         registerEvent(new DroneArrived(id, assignedDeliveryId, Instant.now()));
-    }
-
-    public void becomeAvailable() {
-        this.status = DroneStatus.AVAILABLE;
-        this.assignedDeliveryId = null;
     }
 
     private void syncStatusToReservations() {
