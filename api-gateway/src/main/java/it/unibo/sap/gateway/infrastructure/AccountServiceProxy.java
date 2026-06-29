@@ -60,6 +60,9 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
                 });
         try {
             return future.get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
         } catch (final Exception e) {
             return Optional.empty();
         }
@@ -92,6 +95,9 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
                 });
         try {
             return future.get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return circuitOpenResponse();
         } catch (final Exception e) {
             return circuitOpenResponse();
         }

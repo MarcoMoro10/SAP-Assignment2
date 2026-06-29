@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 public class InMemoryTrackingSessionRegistry implements TrackingSessionRegistry, OutputAdapter {
 
@@ -24,7 +23,7 @@ public class InMemoryTrackingSessionRegistry implements TrackingSessionRegistry,
     public List<TrackingSession> findByDelivery(final DeliveryId deliveryId) {
         return store.values().stream()
                 .filter(s -> s.getDeliveryId().equals(deliveryId))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Optional<TrackingSession> findById(final String trackingSessionId) {

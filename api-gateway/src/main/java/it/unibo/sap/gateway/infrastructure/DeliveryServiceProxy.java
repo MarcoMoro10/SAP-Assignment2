@@ -85,6 +85,9 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
                 });
         try {
             return future.get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
         } catch (final Exception e) {
             return Optional.empty();
         }
@@ -174,6 +177,9 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
     private JsonObject await(final CompletableFuture<JsonObject> future) {
         try {
             return future.get();
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while contacting delivery-service", e);
         } catch (final Exception e) {
             throw new RuntimeException("Failed to contact delivery-service", e);
         }

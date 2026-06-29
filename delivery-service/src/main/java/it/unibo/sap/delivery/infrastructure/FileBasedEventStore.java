@@ -30,7 +30,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class FileBasedEventStore implements EventStore, OutputAdapter {
 
@@ -78,12 +77,12 @@ public class FileBasedEventStore implements EventStore, OutputAdapter {
         return log.stream()
                 .filter(s -> aggregateId.equals(s.aggregateId))
                 .map(FileBasedEventStore::toDomain)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
     public synchronized List<String> aggregateIds() {
-        return log.stream().map(s -> s.aggregateId).distinct().collect(Collectors.toList());
+        return log.stream().map(s -> s.aggregateId).distinct().toList();
     }
 
     private void load() {

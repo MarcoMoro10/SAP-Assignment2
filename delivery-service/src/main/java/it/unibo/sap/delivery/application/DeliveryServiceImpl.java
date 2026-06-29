@@ -219,7 +219,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                         d.getId().value(),
                         d.getRequest().requestedDateTime().scheduledAt(),
                         d.getStatus()))
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
     }
 
     private Delivery loadOwned(final String deliveryId, final String senderId) {
