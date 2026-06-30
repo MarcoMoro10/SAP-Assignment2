@@ -50,11 +50,20 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
                 .put("password", password);
         webClient.post(port, host, "/api/v1/accounts/login")
                 .sendJsonObject(body, ar -> {
-                    if (ar.succeeded() && ar.result().statusCode() == 200) {
+                    if (ar.failed()) {
+                        circuitBreaker.recordFailure();
+                        future.complete(Optional.empty());
+                        return;
+                    }
+                    final int statusCode = ar.result().statusCode();
+                    if (isDownstreamHealthy(statusCode)) {
                         circuitBreaker.recordSuccess();
-                        future.complete(Optional.of(ar.result().bodyAsJsonObject()));
                     } else {
                         circuitBreaker.recordFailure();
+                    }
+                    if (statusCode == 200) {
+                        future.complete(Optional.of(ar.result().bodyAsJsonObject()));
+                    } else {
                         future.complete(Optional.empty());
                     }
                 });
@@ -80,18 +89,18 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
                 .put("password", password);
         webClient.post(port, host, "/api/v1/accounts")
                 .sendJsonObject(body, ar -> {
-                    if (ar.succeeded()) {
-                        final int statusCode = ar.result().statusCode();
-                        if (statusCode >= 200 && statusCode < 300) {
-                            circuitBreaker.recordSuccess();
-                        } else {
-                            circuitBreaker.recordFailure();
-                        }
-                        future.complete(bodyWithStatus(ar.result(), statusCode));
-                    } else {
+                    if (ar.failed()) {
                         circuitBreaker.recordFailure();
                         future.complete(circuitOpenResponse());
+                        return;
                     }
+                    final int statusCode = ar.result().statusCode();
+                    if (isDownstreamHealthy(statusCode)) {
+                        circuitBreaker.recordSuccess();
+                    } else {
+                        circuitBreaker.recordFailure();
+                    }
+                    future.complete(bodyWithStatus(ar.result(), statusCode));
                 });
         try {
             return future.get();
@@ -101,6 +110,10 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
         } catch (final Exception e) {
             return circuitOpenResponse();
         }
+    }
+
+    private static boolean isDownstreamHealthy(final int statusCode) {
+        return statusCode < 500;
     }
 
     private static JsonObject bodyWithStatus(

@@ -43,6 +43,7 @@ class AccountServiceCircuitBreakerTest {
     private static PrometheusControllerObserver observer;
     private static final AtomicInteger loginHits = new AtomicInteger(0);
     private static volatile boolean serviceUp = false;
+    private static volatile boolean serviceRejectsCredentials = false;
 
     private CircuitBreaker breaker;
     private AccountServiceProxy proxy;
@@ -55,7 +56,9 @@ class AccountServiceCircuitBreakerTest {
 
         router.post("/api/v1/accounts/login").handler(ctx -> {
             loginHits.incrementAndGet();
-            if (serviceUp) {
+            if (serviceRejectsCredentials) {
+                ctx.response().setStatusCode(401).end();
+            } else if (serviceUp) {
                 ctx.response().setStatusCode(200).putHeader("Content-Type", "application/json")
                         .end("{\"token\":\"ok\"}");
             } else {
@@ -87,6 +90,7 @@ class AccountServiceCircuitBreakerTest {
 
     @BeforeEach
     void wireProxy() {
+        serviceRejectsCredentials = false;
         breaker = new CircuitBreaker(20, 5, 0.5, OPEN_TIMEOUT_MS, System::currentTimeMillis);
         breaker.setOnStateChange(observer::setAccountCircuitOpen);
         proxy = new AccountServiceProxy(webClient, HOST, STUB_PORT, breaker);
@@ -117,6 +121,26 @@ class AccountServiceCircuitBreakerTest {
         assertTrue(reclosed, "the circuit must re-close once the service is healthy again");
         assertEquals(CircuitBreaker.State.CLOSED, breaker.state());
         assertTrue(proxy.login("user", "pwd").isPresent(), "a closed circuit forwards calls again");
+    }
+
+    @Test
+    void rejectedCredentialsKeepTheCircuitClosed() throws Exception {
+        serviceUp = true;
+        serviceRejectsCredentials = true;
+
+        for (int i = 0; i < 6; i++) {
+            assertFalse(proxy.login("user", "wrong").isPresent(),
+                    "wrong credentials must still yield an empty result to the client");
+        }
+
+        assertFalse(breaker.isOpen(),
+                "a healthy service rejecting credentials (401) must not open the circuit");
+        assertEquals(CircuitBreaker.State.CLOSED, breaker.state());
+        assertEquals(0.0, metric("account_circuit_open"), 1e-9, "gauge must stay closed");
+
+        serviceRejectsCredentials = false;
+        assertTrue(proxy.login("user", "right").isPresent(),
+                "valid credentials must work: the breaker never opened");
     }
 
     private interface Probe {
