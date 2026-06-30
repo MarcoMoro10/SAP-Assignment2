@@ -19,5 +19,8 @@ public class SetupSteps extends Setup {
     @Given("the system is running")
     public void theSystemIsRunning() {
         assertThat(isGatewayHealthy()).as("the gateway must answer health on :%d", GATEWAY_PORT).isTrue();
+        assertThat(awaitAccountBreakerClosed())
+                .as("circuit breaker still open after CircuitBreakerTest: system not ready for journeys")
+                .isTrue();
     }
 }

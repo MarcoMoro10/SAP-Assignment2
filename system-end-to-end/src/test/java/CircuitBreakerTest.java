@@ -38,6 +38,7 @@ class CircuitBreakerTest {
         } catch (final RuntimeException alreadyConnected) {
             // ignore: it was reconnected during the test
         }
+        Setup.awaitAccountBreakerClosed();
     }
 
     @Test

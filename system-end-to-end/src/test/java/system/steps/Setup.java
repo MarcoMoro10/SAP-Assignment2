@@ -22,9 +22,16 @@ public abstract class Setup {
     public static final int DELIVERY_METRICS_PORT = 9400;
     public static final String NETWORK_FILTER = "shipping_network";
 
+    public static final String ADMIN_USERNAME = "admin-1";
+    public static final String ADMIN_PASSWORD = "Admin#123";
+
     private static final String HEALTH_URL = "http://" + HOST + ":" + GATEWAY_PORT + "/api/v1/health";
+    private static final String LOGIN_URL = "http://" + HOST + ":" + GATEWAY_PORT + "/api/v1/login";
     private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(5);
     private static final long POLL_INTERVAL_MS = 2_000;
+
+    private static final Duration BREAKER_READY_TIMEOUT = Duration.ofSeconds(60);
+    private static final long BREAKER_READY_INTERVAL_MS = 2_000;
 
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static volatile boolean initialized = false;
@@ -80,6 +87,41 @@ public abstract class Setup {
             return resp.statusCode() == 200;
         } catch (final Exception e) {
             return false;
+        }
+    }
+
+    public static boolean awaitAccountBreakerClosed() {
+        final long deadline = System.currentTimeMillis() + BREAKER_READY_TIMEOUT.toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            if (accountBreakerClosedNow()) {
+                return true;
+            }
+            sleep(BREAKER_READY_INTERVAL_MS);
+        }
+        return accountBreakerClosedNow();
+    }
+
+    private static boolean accountBreakerClosedNow() {
+        try {
+            if (gatewayMetric("account_circuit_open") != 0.0) {
+                return false;
+            }
+        } catch (final RuntimeException metricNotReadyYet) {
+            return false;
+        }
+        return loginStatus(ADMIN_USERNAME, ADMIN_PASSWORD) == 200;
+    }
+
+    public static int loginStatus(final String username, final String password) {
+        final String body = "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
+        try {
+            return HTTP.send(HttpRequest.newBuilder(URI.create(LOGIN_URL))
+                            .timeout(Duration.ofSeconds(10))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(body))
+                            .build(), HttpResponse.BodyHandlers.discarding()).statusCode();
+        } catch (final Exception failFastOrTimeout) {
+            return -1;
         }
     }
 
