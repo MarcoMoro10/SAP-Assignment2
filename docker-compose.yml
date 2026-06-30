@@ -19,7 +19,6 @@ services:
       - "9002:9002"
       - "9003:9003"
       - "9400:9400"
-    restart: always
 
   api-gateway:
     build:
