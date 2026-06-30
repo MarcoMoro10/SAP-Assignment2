@@ -101,6 +101,9 @@ public class Drone implements AggregateRoot<DroneId> {
     }
 
     private synchronized void syncStatusToReservations() {
+        if (this.status == DroneStatus.OUT_OF_SERVICE) {
+            return;
+        }
         this.status = reservationsByDelivery.isEmpty()
                 ? DroneStatus.AVAILABLE
                 : DroneStatus.RESERVED;

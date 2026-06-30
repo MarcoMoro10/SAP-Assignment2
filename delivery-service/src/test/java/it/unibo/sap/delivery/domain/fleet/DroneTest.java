@@ -111,6 +111,19 @@ class DroneTest {
     }
 
     @Test
+    void goOutOfServiceKeepsStatusEvenAfterReservationRelease() {
+        final Drone drone = availableDrone();
+        final LocalDateTime slot = LocalDateTime.now().plusDays(1);
+        drone.reserveSlot("DLV-1", slot);
+
+        drone.goOutOfService();
+        drone.releaseReservation("DLV-1");
+
+        assertEquals(DroneStatus.OUT_OF_SERVICE, drone.getStatus(),
+                "releasing a reservation must not resurrect an out-of-service drone");
+    }
+
+    @Test
     void isSlotFreeReflectsReservedSlots() {
         final Drone drone = availableDrone();
         final LocalDateTime taken = LocalDateTime.now().plusDays(1);
