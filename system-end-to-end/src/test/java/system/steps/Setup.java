@@ -25,7 +25,7 @@ public abstract class Setup {
     public static final String ADMIN_USERNAME = "admin-1";
     public static final String ADMIN_PASSWORD = "Admin#123";
 
-    private static final String HEALTH_URL = "http://" + HOST + ":" + GATEWAY_PORT + "/api/v1/health";
+    private static final String HEALTH_URL = "http://" + HOST + ":" + GATEWAY_PORT + "/api/v1/health/live";
     private static final String LOGIN_URL = "http://" + HOST + ":" + GATEWAY_PORT + "/api/v1/login";
     private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(5);
     private static final long POLL_INTERVAL_MS = 2_000;

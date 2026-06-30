@@ -31,7 +31,7 @@ class PerformanceTest {
     private static final double MAX_AVERAGE_SECONDS = 0.1;
     private static final int MAX_IN_FLIGHT = 64;
     private static final HttpRequest PING = HttpRequest.newBuilder(
-                    URI.create("http://" + Setup.HOST + ":" + Setup.GATEWAY_PORT + "/api/v1/health"))
+                    URI.create("http://" + Setup.HOST + ":" + Setup.GATEWAY_PORT + "/api/v1/health/live"))
             .GET().build();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
