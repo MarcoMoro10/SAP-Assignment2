@@ -227,6 +227,9 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
 
     private JsonObject rewriteTrackingUrl(final JsonObject deliveryResponse) {
         final String trackingSessionId = deliveryResponse.getString("trackingSessionId");
+        if (trackingSessionId == null || trackingSessionId.isBlank()) {
+            return deliveryResponse.copy();
+        }
         return deliveryResponse.copy()
                 .put("webSocketUrl", "ws://" + publicHost + ":" + port + TRACK_PREFIX + trackingSessionId);
     }
