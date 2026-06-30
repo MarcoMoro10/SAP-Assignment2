@@ -9,6 +9,7 @@ import it.unibo.sap.delivery.application.fleet.FleetViews;
 import it.unibo.sap.delivery.domain.fleet.Coordinates;
 import it.unibo.sap.delivery.domain.fleet.Drone;
 import it.unibo.sap.delivery.domain.fleet.DroneId;
+import it.unibo.sap.delivery.domain.fleet.DroneStatus;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -84,6 +85,7 @@ public class FleetModule implements FleetPort, OutputAdapter {
         }
 
         final Optional<Drone> chosen = drones.findAll().stream()
+                .filter(d -> d.getStatus() != DroneStatus.OUT_OF_SERVICE)
                 .filter(d -> d.canCarry(req.weightKg()))
                 .filter(d -> d.isSlotFree(slot))
                 .min(Comparator.comparingInt(Drone::reservationCount)

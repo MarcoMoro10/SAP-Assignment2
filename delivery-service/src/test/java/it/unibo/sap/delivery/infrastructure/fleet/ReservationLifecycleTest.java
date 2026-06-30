@@ -98,6 +98,20 @@ class ReservationLifecycleTest {
     }
 
     @Test
+    void outOfServiceDroneIsNotSelectedForReservation() {
+        final Drone broken = drone("DRN-1");
+        broken.goOutOfService();
+        drones.save(broken);
+
+        final FleetReservationResult reserved =
+                fleet.reserveDroneForSlot(request("A", WEIGHT_ANY_DRONE), LocalDateTime.now().plusDays(1));
+
+        assertTrue(reserved.reserved());
+        assertNotEquals("DRN-1", reserved.droneId(),
+                "an out-of-service drone must never receive a scheduled reservation");
+    }
+
+    @Test
     void immediateAssignmentIsUnchangedAndCreatesNoReservation() {
         final FleetAssignmentResult assigned = fleet.assignNearestDrone(request("IMM", WEIGHT_ANY_DRONE));
 
