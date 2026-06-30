@@ -14,3 +14,11 @@ Feature: Delivery tracking
     Then I should get its current status and estimated time remaining
     When I stop tracking that delivery
     Then I should receive a confirmation that tracking has stopped
+
+  Scenario: Start tracking a scheduled delivery
+    Given the system is running
+    And I have registered as "marco" with password "Secret#123"
+    And I have logged in as "marco"
+    And I have created a delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" scheduled in "30" minutes
+    When I start tracking that delivery
+    Then I should receive a confirmation that tracking has started for the scheduled delivery

@@ -5,6 +5,8 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import system.World;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -32,9 +34,25 @@ public class UserJourneyTrackingDeliverySteps {
                 .as("create-delivery status").isEqualTo(201);
     }
 
+    @Given("I have created a delivery of weight {string} kg from {string} to {string} scheduled in {string} minutes")
+    public void iHaveCreatedAScheduledDelivery(final String weight, final String pickup,
+                                               final String destination, final String minutes) {
+        final String scheduledAt = LocalDateTime.now().plusMinutes(Long.parseLong(minutes)).toString();
+        assertThat(world.createScheduledDelivery(Double.parseDouble(weight), pickup, destination, scheduledAt))
+                .as("create scheduled delivery status").isEqualTo(201);
+    }
+
     @When("I start tracking that delivery")
     public void iStartTrackingThatDelivery() {
         assertThat(world.startTracking()).as("track-delivery status").isEqualTo(200);
+    }
+
+    @Then("I should receive a confirmation that tracking has started for the scheduled delivery")
+    public void iShouldReceiveTrackingStartedForScheduledDelivery() {
+        assertThat(world.trackingSessionId()).as("trackingSessionId").isNotBlank();
+        final String webSocketUrl = world.lastBody().getString("webSocketUrl");
+        assertThat(webSocketUrl).as("webSocketUrl relayed by the gateway").isNotBlank();
+        assertThat(webSocketUrl).as("the gateway must never emit a null tracking URL").doesNotEndWith("/null");
     }
 
     @Then("I should receive a confirmation that tracking has started")

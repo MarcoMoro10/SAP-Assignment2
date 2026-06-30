@@ -88,6 +88,31 @@ public final class World {
         return lastStatus;
     }
 
+    public int createScheduledDelivery(final double weight, final String pickup,
+                                       final String destination, final String scheduledAtIso) {
+        this.createdWeight = weight;
+        this.createdPickup = pickup;
+        this.createdDestination = destination;
+        final JsonObject body = new JsonObject()
+                .put("weight", weight)
+                .put("startingPlace", parsePlace(pickup))
+                .put("destinationPlace", parsePlace(destination))
+                .put("immediate", false)
+                .put("scheduledAt", scheduledAtIso)
+                .put("deadlineMinutes", 60);
+        post("/api/v1/user-sessions/" + sessionId + "/create-delivery", body);
+        if (lastStatus == 201) {
+            this.deliveryId = lastBody.getString("deliveryId");
+        }
+        return lastStatus;
+    }
+
+    public int cancelDelivery() {
+        post("/api/v1/user-sessions/" + sessionId + "/cancel-delivery",
+                new JsonObject().put("deliveryId", deliveryId));
+        return lastStatus;
+    }
+
     public int getDeliveryDetail() {
         get("/api/v1/user-sessions/" + sessionId + "/deliveries/" + deliveryId);
         return lastStatus;
