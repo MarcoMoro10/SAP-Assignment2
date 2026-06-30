@@ -58,6 +58,7 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
         final Router router = Router.router(vertx);
         router.route("/api/v1/*").handler(BodyHandler.create());
         router.route("/api/v1/*").handler(this::observeRequest);
+        router.get("/api/v1/health/live").handler(this::handleLiveness);
         router.get("/api/v1/health").handler(this::handleHealth);
         router.post("/api/v1/accounts").handler(this::handleRegister);
         router.post("/api/v1/login").handler(this::handleLogin);
@@ -91,16 +92,25 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
         ctx.next();
     }
 
+    private void handleLiveness(final RoutingContext ctx) {
+        ctx.response().setStatusCode(200)
+                .putHeader("Content-Type", "application/json")
+                .end(new JsonObject().put("status", "UP").encode());
+    }
+
     private void handleHealth(final RoutingContext ctx) {
         final Future<Boolean> account = accountServiceProxy.pingHealth();
         final Future<Boolean> delivery = deliveryServiceProxy.pingHealth();
         Future.all(account, delivery).onComplete(ar -> {
+            final boolean accountUp = Boolean.TRUE.equals(account.result());
+            final boolean deliveryUp = Boolean.TRUE.equals(delivery.result());
+            final boolean ready = accountUp && deliveryUp;
             final JsonArray checks = new JsonArray()
                     .add(check("account-service", account.result()))
                     .add(check("delivery-service", delivery.result()));
-            ctx.response().setStatusCode(200)
+            ctx.response().setStatusCode(ready ? 200 : 503)
                     .putHeader("Content-Type", "application/json")
-                    .end(new JsonObject().put("status", "UP").put("checks", checks).encode());
+                    .end(new JsonObject().put("status", ready ? "UP" : "DOWN").put("checks", checks).encode());
         });
     }
 
