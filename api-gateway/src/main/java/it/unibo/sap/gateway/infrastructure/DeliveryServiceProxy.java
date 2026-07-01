@@ -24,6 +24,11 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
     private final CircuitBreaker circuitBreaker;
 
     private static final long HEALTH_TIMEOUT_MS = 2000;
+    private static final long REQUEST_TIMEOUT_MS = 10_000;
+
+    private static boolean isDownstreamHealthy(final int statusCode) {
+        return statusCode < 500;
+    }
 
     public DeliveryServiceProxy(final WebClient webClient, final String host,
                                 final int port, final int fleetPort) {
@@ -72,9 +77,10 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
         final CompletableFuture<Optional<JsonObject>> future = new CompletableFuture<>();
         webClient.get(port, host, "/api/v1/deliveries/" + deliveryId)
                 .addQueryParam("senderId", senderId)
+                .timeout(REQUEST_TIMEOUT_MS)
                 .send(ar -> {
                     if (ar.succeeded()) {
-                        circuitBreaker.recordSuccess();
+                        recordOutcome(ar.result().statusCode());
                         future.complete(ar.result().statusCode() == 200
                                 ? Optional.of(ar.result().bodyAsJsonObject())
                                 : Optional.empty());
@@ -143,9 +149,9 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
             throw new RuntimeException("delivery-service circuit is open");
         }
         final CompletableFuture<JsonObject> future = new CompletableFuture<>();
-        request.send(ar -> {
+        request.timeout(REQUEST_TIMEOUT_MS).send(ar -> {
             if (ar.succeeded()) {
-                circuitBreaker.recordSuccess();
+                recordOutcome(ar.result().statusCode());
                 future.complete(onSuccess.apply(ar.result()));
             } else {
                 circuitBreaker.recordFailure();
@@ -162,9 +168,9 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
             throw new RuntimeException("delivery-service circuit is open");
         }
         final CompletableFuture<JsonObject> future = new CompletableFuture<>();
-        request.sendJsonObject(body, ar -> {
+        request.timeout(REQUEST_TIMEOUT_MS).sendJsonObject(body, ar -> {
             if (ar.succeeded()) {
-                circuitBreaker.recordSuccess();
+                recordOutcome(ar.result().statusCode());
                 future.complete(onSuccess.apply(ar.result()));
             } else {
                 circuitBreaker.recordFailure();
@@ -182,6 +188,14 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
             throw new RuntimeException("Interrupted while contacting delivery-service", e);
         } catch (final Exception e) {
             throw new RuntimeException("Failed to contact delivery-service", e);
+        }
+    }
+
+    private void recordOutcome(final int statusCode) {
+        if (isDownstreamHealthy(statusCode)) {
+            circuitBreaker.recordSuccess();
+        } else {
+            circuitBreaker.recordFailure();
         }
     }
 

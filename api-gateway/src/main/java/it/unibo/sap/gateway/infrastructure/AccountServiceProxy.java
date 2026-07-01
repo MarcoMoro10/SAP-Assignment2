@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 public class AccountServiceProxy implements AccountService, OutputAdapter {
 
     private static final long HEALTH_TIMEOUT_MS = 2000;
+    private static final long REQUEST_TIMEOUT_MS = 10_000;
 
     private final WebClient webClient;
     private final String host;
@@ -49,6 +50,7 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
                 .put("username", username)
                 .put("password", password);
         webClient.post(port, host, "/api/v1/accounts/login")
+                .timeout(REQUEST_TIMEOUT_MS)
                 .sendJsonObject(body, ar -> {
                     if (ar.failed()) {
                         circuitBreaker.recordFailure();
@@ -88,6 +90,7 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
                 .put("username", username)
                 .put("password", password);
         webClient.post(port, host, "/api/v1/accounts")
+                .timeout(REQUEST_TIMEOUT_MS)
                 .sendJsonObject(body, ar -> {
                     if (ar.failed()) {
                         circuitBreaker.recordFailure();
