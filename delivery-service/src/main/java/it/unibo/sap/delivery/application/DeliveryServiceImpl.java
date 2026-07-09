@@ -199,6 +199,9 @@ public class DeliveryServiceImpl implements DeliveryService {
                 deliveryRepository.save(d);
                 d.clearDomainEvents();
                 metricsObserver.onDeliveryInProgress();
+            } else {
+                System.err.println("WARN scheduled delivery " + d.getId().value()
+                        + " not started: drone reservation not reconstructed (" + outcome.rejectionReason() + ")");
             }
         }
     }

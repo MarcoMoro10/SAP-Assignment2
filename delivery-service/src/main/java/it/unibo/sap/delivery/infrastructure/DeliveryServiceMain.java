@@ -30,7 +30,9 @@ public class DeliveryServiceMain {
 
         final Vertx vertx = Vertx.vertx();
 
-        final EventStore eventStore = new FileBasedEventStore();
+        final EventStore eventStore = Env.getBoolean("DELIVERY_RESET_STORE", false)
+                ? FileBasedEventStore.resetting()
+                : new FileBasedEventStore();
         final DeliveryRepository deliveryRepository = new EventSourcedDeliveryRepository(eventStore);
         final TrackingSessionRegistry trackingRegistry = new InMemoryTrackingSessionRegistry();
         final GeocodingPort geocoding = new GeocodingService();

@@ -40,11 +40,15 @@ public class FileBasedEventStore implements EventStore, OutputAdapter {
     private final List<StoredDeliveryEvent> log = new ArrayList<>();
 
     public FileBasedEventStore() {
-        this(DEFAULT_FILE, false);
+        this(DEFAULT_FILE, true);
     }
 
     public FileBasedEventStore(final String filePath) {
         this(filePath, true);
+    }
+
+    public static FileBasedEventStore resetting() {
+        return new FileBasedEventStore(DEFAULT_FILE, false);
     }
 
     private FileBasedEventStore(final String filePath, final boolean loadExisting) {
