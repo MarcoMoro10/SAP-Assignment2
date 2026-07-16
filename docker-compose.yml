@@ -37,8 +37,12 @@ services:
     environment:
       - SESSION_HOST=session-service
       - SESSION_PORT=9001
+      - DELIVERY_EVENTS_FILE=data/delivery-events.json
+    volumes:
+      - delivery-data:/project/data
     depends_on:
       - session-service
+    restart: always
 
   api-gateway:
     build:
@@ -94,3 +98,6 @@ services:
 networks:
   shipping_network:
     driver: bridge
+
+volumes:
+  delivery-data:

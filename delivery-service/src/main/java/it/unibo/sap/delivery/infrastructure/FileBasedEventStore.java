@@ -33,7 +33,7 @@ import java.util.List;
 
 public class FileBasedEventStore implements EventStore, OutputAdapter {
 
-    private static final String DEFAULT_FILE = "data/delivery-events.json";
+    public static final String DEFAULT_FILE = "data/delivery-events.json";
 
     private final Path file;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -48,7 +48,11 @@ public class FileBasedEventStore implements EventStore, OutputAdapter {
     }
 
     public static FileBasedEventStore resetting() {
-        return new FileBasedEventStore(DEFAULT_FILE, false);
+        return resetting(DEFAULT_FILE);
+    }
+
+    public static FileBasedEventStore resetting(final String filePath) {
+        return new FileBasedEventStore(filePath, false);
     }
 
     private FileBasedEventStore(final String filePath, final boolean loadExisting) {
