@@ -3,6 +3,7 @@ package it.unibo.sap.delivery.infrastructure;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.client.WebClient;
 import it.unibo.sap.delivery.application.DeliveryRepository;
+import it.unibo.sap.delivery.application.DeliveryRecoveryService;
 import it.unibo.sap.delivery.application.DeliveryService;
 import it.unibo.sap.delivery.application.DeliveryServiceEventObserver;
 import it.unibo.sap.delivery.application.DeliveryServiceImpl;
@@ -60,6 +61,8 @@ public class DeliveryServiceMain {
         fleetModule.setTelemetrySink(new DroneEventHandlerSink(droneEventHandler));
 
         FleetSeeder.seed(droneRepository);
+
+        new DeliveryRecoveryService(deliveryRepository, fleetModule, metricsObserver).recover();
 
         final WebClient webClient = WebClient.create(vertx);
         final SessionValidatorProxy sessionValidator =
