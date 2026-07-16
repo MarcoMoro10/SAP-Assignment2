@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: Session Service API
+  version: 1.0.0
+  description: >
+    Runtime custodian of identity (Users/Sessions context). Authenticates a user at login
+    (coining a Session aggregate against the account-service) and exposes that identity for
+    introspection. It does NOT orchestrate delivery commands: routing those is the api-gateway's job,
+    and per-use-case authorization is the delivery-service's job (which calls the introspection
+    endpoint below).
+servers:
+  - url: http://localhost:9001
+paths:
+  /api/v1/health:
+    get:
+      summary: Liveness/health probe
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+  /api/v1/login:
+    post:
+      summary: Authenticate and coin a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                  accountId:
+                    type: string
+                  role:
+                    type: string
+                    enum: [SENDER, ADMIN]
+                  links:
+                    type: object
+        '400':
+          description: Missing username or password
+        '401':
+          description: Invalid credentials
+  /api/v1/user-sessions/{sessionId}:
+    get:
+      summary: Introspect a session (resolve identity)
+      description: >
+        Consumed by the delivery-service to resolve the opaque session token (propagated as the
+        X-Session-Id header) into the caller identity and role.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The identity behind the session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accountId:
+                    type: string
+                  role:
+                    type: string
+                    enum: [SENDER, ADMIN]
+        '401':
+          description: Invalid or expired session
