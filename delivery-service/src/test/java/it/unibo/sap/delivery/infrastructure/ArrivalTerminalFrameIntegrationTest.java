@@ -12,6 +12,7 @@ import it.unibo.sap.delivery.application.TrackingHandle;
 import it.unibo.sap.delivery.application.TrackingSessionRegistry;
 import it.unibo.sap.delivery.support.FakeFleetPort;
 import it.unibo.sap.delivery.support.FakeGeocodingPort;
+import it.unibo.sap.delivery.support.FakeSessionValidator;
 import it.unibo.sap.delivery.support.InMemoryDeliveryRepository;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,7 +61,8 @@ class ArrivalTerminalFrameIntegrationTest {
                 repository, trackingRegistry, observer, fleet, DRONE_SPEED_UNITS_PER_SECOND);
 
         final CountDownLatch deployed = new CountDownLatch(1);
-        vertx.deployVerticle(new DeliveryServiceController(deliveryService, PORT))
+        vertx.deployVerticle(new DeliveryServiceController(
+                        deliveryService, new RequestAuthorizer(new FakeSessionValidator()), PORT))
                 .onComplete(ar -> deployed.countDown());
         await(deployed);
     }

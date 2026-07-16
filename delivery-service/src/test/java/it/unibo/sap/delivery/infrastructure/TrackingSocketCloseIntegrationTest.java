@@ -9,6 +9,7 @@ import it.unibo.sap.delivery.application.GeocodingPort;
 import it.unibo.sap.delivery.application.TrackingSessionRegistry;
 import it.unibo.sap.delivery.infrastructure.fleet.FleetModule;
 import it.unibo.sap.delivery.infrastructure.fleet.InMemoryDroneRepository;
+import it.unibo.sap.delivery.support.FakeSessionValidator;
 import it.unibo.sap.delivery.support.InMemoryDeliveryRepository;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,7 +48,8 @@ class TrackingSocketCloseIntegrationTest {
                 new DeliveryServiceImpl(repository, fleetModule, geocoding, trackingRegistry);
 
         final CountDownLatch deployed = new CountDownLatch(1);
-        vertx.deployVerticle(new DeliveryServiceController(deliveryService, PORT))
+        vertx.deployVerticle(new DeliveryServiceController(
+                        deliveryService, new RequestAuthorizer(new FakeSessionValidator()), PORT))
                 .onComplete(ar -> deployed.countDown());
         await(deployed);
     }

@@ -39,12 +39,11 @@ public class DeliverySteps {
     public void createImmediateWithoutDeadline(final String weight, final String from, final String to,
                                                final String sender) {
         final JsonObject body = new JsonObject()
-                .put("senderId", sender)
                 .put("weight", Double.parseDouble(weight))
                 .put("startingPlace", address(from))
                 .put("destinationPlace", address(to))
                 .put("immediate", true);
-        post("/api/v1/deliveries", body);
+        postAs("/api/v1/deliveries", body, sender);
     }
 
     @When("I create a delivery of weight {string} kg from {string} to {string} scheduled in {string} days as {string}")
@@ -128,6 +127,7 @@ public class DeliverySteps {
         final CompletableFuture<JsonArray> done = new CompletableFuture<>();
         ctx.webClient()
                 .get(ctx.adminPort(), ctx.host(), "/api/v1/admin/fleet")
+                .putHeader("X-Session-Id", "admin")
                 .send(ar -> {
                     if (ar.succeeded()) {
                         lastStatus = ar.result().statusCode();
@@ -171,6 +171,7 @@ public class DeliverySteps {
         final CompletableFuture<JsonArray> done = new CompletableFuture<>();
         ctx.webClient()
                 .get(ctx.adminPort(), ctx.host(), "/api/v1/admin/scheduling")
+                .putHeader("X-Session-Id", "admin")
                 .send(ar -> {
                     if (ar.succeeded()) {
                         lastStatus = ar.result().statusCode();
@@ -215,10 +216,25 @@ public class DeliverySteps {
         assertTrue(found, "expected at least one drone in status " + status + " carrying a package");
     }
 
+
+    @When("I try to create a delivery without a propagated identity")
+    public void createWithoutIdentity() {
+        postAs("/api/v1/deliveries", sampleImmediateBody(), null);
+    }
+
+    @When("I try to create a delivery with an invalid session")
+    public void createWithInvalidSession() {
+        postAs("/api/v1/deliveries", sampleImmediateBody(), it.unibo.sap.delivery.support.FakeSessionValidator.INVALID_TOKEN);
+    }
+
+    @When("the sender {string} requests the fleet view")
+    public void senderRequestsFleetView(final String sender) {
+        getRawAs(ctx.adminPort(), "/api/v1/admin/fleet", sender);
+    }
+
     private void create(final String weight, final String from, final String to,
                         final String sender, final boolean immediate, final String scheduledAt) {
         final JsonObject body = new JsonObject()
-                .put("senderId", sender)
                 .put("weight", Double.parseDouble(weight))
                 .put("startingPlace", address(from))
                 .put("destinationPlace", address(to))
@@ -227,23 +243,24 @@ public class DeliverySteps {
         if (scheduledAt != null) {
             body.put("scheduledAt", scheduledAt);
         }
-        post("/api/v1/deliveries", body);
+        postAs("/api/v1/deliveries", body, sender);
     }
 
     private void getDetail(final String deliveryId, final String sender) {
         final CompletableFuture<JsonObject> done = new CompletableFuture<>();
         ctx.webClient()
-                .get(ctx.deliveryPort(), ctx.host(), "/api/v1/deliveries/" + deliveryId + "?senderId=" + sender)
+                .get(ctx.deliveryPort(), ctx.host(), "/api/v1/deliveries/" + deliveryId)
+                .putHeader("X-Session-Id", sender)
                 .send(ar -> complete(done, ar));
         capture(done, "GET detail");
     }
 
     private void track(final String deliveryId, final String sender) {
-        post("/api/v1/deliveries/" + deliveryId + "/track", new JsonObject().put("senderId", sender));
+        postAs("/api/v1/deliveries/" + deliveryId + "/track", new JsonObject(), sender);
     }
 
     private void cancel(final String deliveryId, final String sender) {
-        post("/api/v1/deliveries/" + deliveryId + "/cancel", new JsonObject().put("senderId", sender));
+        postAs("/api/v1/deliveries/" + deliveryId + "/cancel", new JsonObject(), sender);
     }
 
     /** Splits "via Emilia, 9" into {street:"via Emilia", number:9}; "xxxxx" -> number 0 (invalid). */
@@ -262,12 +279,35 @@ public class DeliverySteps {
         return new JsonObject().put("street", street).put("number", number);
     }
 
-    private void post(final String path, final JsonObject payload) {
+    private void postAs(final String path, final JsonObject payload, final String sessionToken) {
         final CompletableFuture<JsonObject> done = new CompletableFuture<>();
-        ctx.webClient()
-                .post(ctx.deliveryPort(), ctx.host(), path)
-                .sendJsonObject(payload, ar -> complete(done, ar));
+        io.vertx.ext.web.client.HttpRequest<io.vertx.core.buffer.Buffer> request =
+                ctx.webClient().post(ctx.deliveryPort(), ctx.host(), path);
+        if (sessionToken != null) {
+            request = request.putHeader("X-Session-Id", sessionToken);
+        }
+        request.sendJsonObject(payload, ar -> complete(done, ar));
         capture(done, "POST " + path);
+    }
+
+    private void getRawAs(final int port, final String path, final String sessionToken) {
+        final CompletableFuture<JsonObject> done = new CompletableFuture<>();
+        io.vertx.ext.web.client.HttpRequest<io.vertx.core.buffer.Buffer> request =
+                ctx.webClient().get(port, ctx.host(), path);
+        if (sessionToken != null) {
+            request = request.putHeader("X-Session-Id", sessionToken);
+        }
+        request.send(ar -> complete(done, ar));
+        capture(done, "GET " + path);
+    }
+
+    private static JsonObject sampleImmediateBody() {
+        return new JsonObject()
+                .put("weight", 2.0)
+                .put("startingPlace", new JsonObject().put("street", "via Emilia").put("number", 9))
+                .put("destinationPlace", new JsonObject().put("street", "via Veneto").put("number", 5))
+                .put("immediate", true)
+                .put("deadlineMinutes", 60);
     }
 
     private void complete(final CompletableFuture<JsonObject> done,

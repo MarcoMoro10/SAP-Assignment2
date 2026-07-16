@@ -12,12 +12,14 @@ import it.unibo.sap.delivery.application.TrackingSessionRegistry;
 import it.unibo.sap.delivery.infrastructure.DeliveryServiceController;
 import it.unibo.sap.delivery.infrastructure.FleetMonitoringController;
 import it.unibo.sap.delivery.infrastructure.GeocodingService;
+import it.unibo.sap.delivery.infrastructure.RequestAuthorizer;
 import it.unibo.sap.delivery.infrastructure.InMemoryTrackingSessionRegistry;
 import it.unibo.sap.delivery.infrastructure.VertxTrackingSessionEventObserver;
 import it.unibo.sap.delivery.infrastructure.fleet.DroneEventHandlerSink;
 import it.unibo.sap.delivery.infrastructure.fleet.FleetModule;
 import it.unibo.sap.delivery.infrastructure.fleet.FleetSeeder;
 import it.unibo.sap.delivery.infrastructure.fleet.InMemoryDroneRepository;
+import it.unibo.sap.delivery.support.FakeSessionValidator;
 import it.unibo.sap.delivery.support.InMemoryDeliveryRepository;
 
 import java.util.concurrent.CountDownLatch;
@@ -82,8 +84,10 @@ public final class DeliveryServiceTestContext {
 
         FleetSeeder.seed(droneRepository);
 
-        deliveryDeploymentId = deployAwait(new DeliveryServiceController(deliveryService, DELIVERY_PORT));
-        adminDeploymentId = deployAwait(new FleetMonitoringController(deliveryService, ADMIN_PORT));
+        final RequestAuthorizer authorizer = new RequestAuthorizer(new FakeSessionValidator());
+
+        deliveryDeploymentId = deployAwait(new DeliveryServiceController(deliveryService, authorizer, DELIVERY_PORT));
+        adminDeploymentId = deployAwait(new FleetMonitoringController(deliveryService, authorizer, ADMIN_PORT));
     }
 
     private String deployAwait(final Verticle verticle) {

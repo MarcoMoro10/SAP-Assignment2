@@ -4,6 +4,13 @@ info:
   description: |-
     REST (and WebSocket) API of the delivery-service for the "Shipping on the
     Air" drone delivery system.
+
+    Authorization (authenticate-and-propagate): every delivery/admin operation requires the caller
+    identity to be propagated as the `X-Session-Id` header (an opaque session token). The
+    delivery-service resolves it by introspection against the session-service and derives the owning
+    Sender itself — it never trusts a `senderId` in the request body. A missing/invalid identity is
+    rejected with 401; an insufficient role with 403. This keeps the service secure even when invoked
+    directly (bypassing the api-gateway).
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -32,8 +39,10 @@ paths:
       tags:
         - delivery
       summary: Create and validate a delivery request
-      description:
+      description: Requires a SENDER identity via X-Session-Id; the owning Sender is derived from it.
       operationId: createDelivery
+      parameters:
+        - $ref: '#/components/parameters/SessionIdHeader'
       requestBody:
         required: true
         content:
@@ -41,6 +50,8 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateDeliveryRequest'
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '201':
           description: Delivery created (IN_PROGRESS for immediate, SCHEDULED for scheduled)
           content:
@@ -91,12 +102,7 @@ paths:
           required: true
           schema:
             type: string
-        - name: senderId
-          in: query
-          description: Owner of the delivery, for the ownership check
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SessionIdHeader'
       responses:
         '200':
           description: Successful operation
@@ -104,6 +110,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           description: Delivery not found (unknown, or owned by another sender)
           content:
@@ -118,25 +126,15 @@ paths:
       tags:
         - delivery
       summary: Cancel a delivery before flight
-      description:
       operationId: cancelDelivery
+      description: Requires a SENDER identity via X-Session-Id; a Sender may cancel only their own delivery.
       parameters:
         - name: deliveryId
           in: path
           required: true
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [senderId]
-              properties:
-                senderId:
-                  type: string
-                  description: Owner of the delivery, for the ownership check
+        - $ref: '#/components/parameters/SessionIdHeader'
       responses:
         '200':
           description: Delivery cancelled (status CANCELLED); reservation released
@@ -149,6 +147,16 @@ paths:
                     type: string
                   status:
                     $ref: '#/components/schemas/DeliveryStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The caller is a Sender but not the owner of this delivery
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "You can only cancel your own delivery"
         '409':
           description: Delivery cannot be cancelled once in flight (remains IN_PROGRESS)
           content:
@@ -158,7 +166,7 @@ paths:
               example:
                 error: "Delivery cannot be cancelled once in flight"
         '404':
-          description: Delivery not found (unknown, or owned by another sender)
+          description: Delivery not found
           content:
             application/json:
               schema:
@@ -171,25 +179,15 @@ paths:
       tags:
         - tracking
       summary: Start tracking
-      description:
       operationId: startTracking
+      description: Requires a SENDER identity via X-Session-Id; only the owner may track the delivery.
       parameters:
         - name: deliveryId
           in: path
           required: true
           schema:
             type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [senderId]
-              properties:
-                senderId:
-                  type: string
-                  description: Owner of the delivery, for the ownership check
+        - $ref: '#/components/parameters/SessionIdHeader'
       responses:
         '201':
           description: TrackingSession created; WebSocket handle returned
@@ -197,6 +195,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TrackingHandle'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           description: Delivery not found (unknown, or owned by another sender)
           content:
@@ -237,8 +237,10 @@ paths:
       tags:
         - admin-fleet
       summary: Fleet monitoring view
-      description:
+      description: Requires an ADMIN identity via X-Session-Id.
       operationId: viewFleet
+      parameters:
+        - $ref: '#/components/parameters/SessionIdHeader'
       responses:
         '200':
           description: Current state of the whole fleet
@@ -248,6 +250,10 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/FleetDroneView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /admin/scheduling:
     servers:
@@ -257,9 +263,10 @@ paths:
       tags:
         - admin-scheduling
       summary: Delivery scheduling view
-      description:
+      description: Requires an ADMIN identity via X-Session-Id.
       operationId: viewScheduling
       parameters:
+        - $ref: '#/components/parameters/SessionIdHeader'
         - name: droneId
           in: query
           description: Optional filter for a single drone's daily plan
@@ -275,8 +282,42 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ScheduledDeliveryView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
 components:
+  parameters:
+    SessionIdHeader:
+      name: X-Session-Id
+      in: header
+      required: true
+      description: Opaque session token identifying the caller (propagated by the api-gateway).
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid session identity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missing:
+              value: { error: "Missing session identity" }
+            invalid:
+              value: { error: "Invalid or expired session" }
+    Forbidden:
+      description: The caller's role is not allowed to perform this operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Forbidden: requires ADMIN role"
+
   schemas:
 
     DeliveryStatus:
@@ -330,16 +371,15 @@ components:
 
     CreateDeliveryRequest:
       type: object
+      description: |-
+        The owning Sender is NOT part of the body: it is derived from the authenticated identity
+        (X-Session-Id introspection), so a client cannot spoof another Sender.
       required:
-        - senderId
         - weight
         - startingPlace
         - destinationPlace
         - deadlineMinutes
       properties:
-        senderId:
-          type: string
-          description: Identifier of the owning Sender (coined in the Users Context)
         weight:
           type: number
           description: Package weight in kilograms

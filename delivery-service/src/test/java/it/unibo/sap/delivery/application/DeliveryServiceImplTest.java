@@ -3,6 +3,7 @@ package it.unibo.sap.delivery.application;
 import it.unibo.sap.delivery.application.DeliveryExceptions.BadRequestException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.CannotCancelInFlightException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.DeliveryNotFoundException;
+import it.unibo.sap.delivery.application.DeliveryExceptions.ForbiddenDeliveryAccessException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.ValidationRejectedException;
 import it.unibo.sap.delivery.domain.deliveries.DeliveryId;
 import it.unibo.sap.delivery.domain.deliveries.DeliveryStatus;
@@ -103,6 +104,18 @@ class DeliveryServiceImplTest {
         assertEquals(DeliveryStatus.CANCELLED,
                 repository.findById(DeliveryId.of(result.deliveryId())).orElseThrow().getStatus());
         assertTrue(fleet.releasedReservations.contains(FakeFleetPort.DEFAULT_DRONE));
+    }
+
+    @Test
+    void cancelSomeoneElsesDeliveryIsForbidden() {
+        final CreateDeliveryCommand cmd = new CreateDeliveryCommand("user-1", 2.0,
+                "via Emilia", 9, "via Veneto", 5, false, LocalDateTime.now().plusDays(2), 60);
+        final CreateDeliveryResult result = service.createDelivery(cmd);
+
+        assertThrows(ForbiddenDeliveryAccessException.class,
+                () -> service.cancelDelivery(result.deliveryId(), "intruder"));
+        assertEquals(DeliveryStatus.SCHEDULED,
+                repository.findById(DeliveryId.of(result.deliveryId())).orElseThrow().getStatus());
     }
 
     @Test

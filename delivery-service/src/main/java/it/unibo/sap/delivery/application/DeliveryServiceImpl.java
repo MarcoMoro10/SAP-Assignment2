@@ -3,6 +3,7 @@ package it.unibo.sap.delivery.application;
 import it.unibo.sap.delivery.application.DeliveryExceptions.BadRequestException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.CannotCancelInFlightException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.DeliveryNotFoundException;
+import it.unibo.sap.delivery.application.DeliveryExceptions.ForbiddenDeliveryAccessException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.ValidationRejectedException;
 import it.unibo.sap.delivery.application.fleet.FleetAssignmentResult;
 import it.unibo.sap.delivery.application.fleet.FleetFeasibilityRequest;
@@ -146,7 +147,11 @@ public class DeliveryServiceImpl implements DeliveryService {
 
     @Override
     public void cancelDelivery(final String deliveryId, final String senderId) {
-        final Delivery delivery = loadOwned(deliveryId, senderId);
+        final Delivery delivery = deliveryRepository.findById(DeliveryId.of(deliveryId))
+                .orElseThrow(DeliveryNotFoundException::new);
+        if (!delivery.isOwnedBy(SenderId.of(senderId))) {
+            throw new ForbiddenDeliveryAccessException();
+        }
         if (delivery.getStatus() == DeliveryStatus.IN_PROGRESS) {
             throw new CannotCancelInFlightException();
         }

@@ -18,18 +18,23 @@ public class FleetMonitoringController extends AbstractVerticle implements Input
     public static final int DEFAULT_PORT = 8083;
 
     private final DeliveryService deliveryService;
+    private final RequestAuthorizer authorizer;
     private final int port;
 
-    public FleetMonitoringController(final DeliveryService deliveryService, final int port) {
+    public FleetMonitoringController(final DeliveryService deliveryService,
+                                     final RequestAuthorizer authorizer, final int port) {
         this.deliveryService = deliveryService;
+        this.authorizer = authorizer;
         this.port = port;
     }
 
     @Override
     public void start(final Promise<Void> startPromise) {
         final Router router = Router.router(vertx);
-        router.get("/api/v1/admin/fleet").handler(this::handleViewFleet);
-        router.get("/api/v1/admin/scheduling").handler(this::handleViewScheduling);
+        router.get("/api/v1/admin/fleet")
+                .blockingHandler(authorizer.requireRole("ADMIN")).handler(this::handleViewFleet);
+        router.get("/api/v1/admin/scheduling")
+                .blockingHandler(authorizer.requireRole("ADMIN")).handler(this::handleViewScheduling);
 
         vertx.createHttpServer()
                 .requestHandler(router)

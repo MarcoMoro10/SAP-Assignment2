@@ -87,3 +87,22 @@ Feature: Create and track a delivery (component, REST black-box)
     Then the delivery is created with status "SCHEDULED"
     When the admin requests the scheduling view
     Then the scheduling view lists that delivery with a scheduled slot
+
+
+  Scenario: A direct call without a propagated identity is rejected
+    When I try to create a delivery without a propagated identity
+    Then the response status is 401 with error "Missing session identity"
+
+  Scenario: A direct call carrying an invalid session is rejected
+    When I try to create a delivery with an invalid session
+    Then the response status is 401 with error "Invalid or expired session"
+
+  Scenario: A Sender is forbidden from the admin fleet view
+    When the sender "user-1" requests the fleet view
+    Then the response status is 403 with error "Forbidden: requires ADMIN role"
+
+  Scenario: A Sender cannot cancel someone else's delivery
+    When I create a delivery of weight "2" kg from "via Emilia, 9" to "via Veneto, 5" scheduled in "2" days as "user-1"
+    Then the delivery is created with status "SCHEDULED"
+    When I cancel that delivery as "intruder"
+    Then the response status is 403 with error "You can only cancel your own delivery"

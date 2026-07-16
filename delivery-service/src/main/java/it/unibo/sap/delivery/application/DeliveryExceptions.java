@@ -28,4 +28,10 @@ public final class DeliveryExceptions {
             super("Delivery cannot be cancelled once in flight");
         }
     }
+
+    public static class ForbiddenDeliveryAccessException extends RuntimeException {
+        public ForbiddenDeliveryAccessException() {
+            super("You can only cancel your own delivery");
+        }
+    }
 }

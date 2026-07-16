@@ -1,6 +1,7 @@
 package it.unibo.sap.delivery.infrastructure;
 
 import io.vertx.core.Vertx;
+import io.vertx.ext.web.client.WebClient;
 import it.unibo.sap.delivery.application.DeliveryRepository;
 import it.unibo.sap.delivery.application.DeliveryService;
 import it.unibo.sap.delivery.application.DeliveryServiceEventObserver;
@@ -20,6 +21,8 @@ public class DeliveryServiceMain {
     static final int DEFAULT_DELIVERY_SERVICE_PORT = 9002;
     static final int DEFAULT_ADMIN_PORT = 9003;
     static final int DEFAULT_METRICS_PORT = 9400;
+    static final String DEFAULT_SESSION_HOST = "localhost";
+    static final int DEFAULT_SESSION_PORT = 9001;
 
     static final double DRONE_SPEED_UNITS_PER_SECOND = 0.01;
 
@@ -27,6 +30,8 @@ public class DeliveryServiceMain {
         final int deliveryPort = Env.getInt("DELIVERY_PORT", DEFAULT_DELIVERY_SERVICE_PORT);
         final int adminPort = Env.getInt("FLEET_PORT", DEFAULT_ADMIN_PORT);
         final int metricsPort = Env.getInt("DELIVERY_METRICS_PORT", DEFAULT_METRICS_PORT);
+        final String sessionHost = Env.get("SESSION_HOST", DEFAULT_SESSION_HOST);
+        final int sessionPort = Env.getInt("SESSION_PORT", DEFAULT_SESSION_PORT);
 
         final Vertx vertx = Vertx.vertx();
 
@@ -55,8 +60,13 @@ public class DeliveryServiceMain {
 
         FleetSeeder.seed(droneRepository);
 
-        vertx.deployVerticle(new DeliveryServiceController(deliveryService, deliveryPort));
-        vertx.deployVerticle(new FleetMonitoringController(deliveryService, adminPort));
+        final WebClient webClient = WebClient.create(vertx);
+        final SessionValidatorProxy sessionValidator =
+                new SessionValidatorProxy(webClient, sessionHost, sessionPort);
+        final RequestAuthorizer authorizer = new RequestAuthorizer(sessionValidator);
+
+        vertx.deployVerticle(new DeliveryServiceController(deliveryService, authorizer, deliveryPort));
+        vertx.deployVerticle(new FleetMonitoringController(deliveryService, authorizer, adminPort));
         vertx.deployVerticle(new VertxSchedulerVerticle(deliveryService));
     }
 }

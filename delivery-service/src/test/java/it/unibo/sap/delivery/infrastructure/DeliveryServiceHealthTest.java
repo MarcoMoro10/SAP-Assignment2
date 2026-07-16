@@ -9,6 +9,7 @@ import it.unibo.sap.delivery.application.TrackingSessionRegistry;
 import it.unibo.sap.delivery.infrastructure.fleet.FleetModule;
 import it.unibo.sap.delivery.infrastructure.fleet.InMemoryDroneRepository;
 import it.unibo.sap.delivery.support.FakeGeocodingPort;
+import it.unibo.sap.delivery.support.FakeSessionValidator;
 import it.unibo.sap.delivery.support.InMemoryDeliveryRepository;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,7 +41,8 @@ class DeliveryServiceHealthTest {
                 new InMemoryDeliveryRepository(), fleetModule, new FakeGeocodingPort(), trackingRegistry);
 
         final CompletableFuture<Void> deployed = new CompletableFuture<>();
-        vertx.deployVerticle(new DeliveryServiceController(deliveryService, PORT))
+        vertx.deployVerticle(new DeliveryServiceController(
+                        deliveryService, new RequestAuthorizer(new FakeSessionValidator()), PORT))
                 .onComplete(ar -> deployed.complete(null));
         deployed.get(15, TimeUnit.SECONDS);
         webClient = WebClient.create(vertx);

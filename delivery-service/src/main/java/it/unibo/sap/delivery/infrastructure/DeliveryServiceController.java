@@ -13,6 +13,7 @@ import it.unibo.sap.delivery.application.CreateDeliveryResult;
 import it.unibo.sap.delivery.application.DeliveryExceptions.BadRequestException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.CannotCancelInFlightException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.DeliveryNotFoundException;
+import it.unibo.sap.delivery.application.DeliveryExceptions.ForbiddenDeliveryAccessException;
 import it.unibo.sap.delivery.application.DeliveryExceptions.ValidationRejectedException;
 import it.unibo.sap.delivery.application.DeliveryService;
 import it.unibo.sap.delivery.application.TrackingHandle;
@@ -27,11 +28,14 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
     public static final String DOMAIN_COMMAND_EXECUTOR = "delivery-domain-commands";
 
     private final DeliveryService deliveryService;
+    private final RequestAuthorizer authorizer;
     private final int port;
     private WorkerExecutor commandExecutor;
 
-    public DeliveryServiceController(final DeliveryService deliveryService, final int port) {
+    public DeliveryServiceController(final DeliveryService deliveryService,
+                                     final RequestAuthorizer authorizer, final int port) {
         this.deliveryService = deliveryService;
+        this.authorizer = authorizer;
         this.port = port;
     }
 
@@ -41,10 +45,14 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
         final Router router = Router.router(vertx);
         router.route("/api/v1/*").handler(BodyHandler.create());
         router.get("/api/v1/health").handler(this::handleHealth);
-        router.post("/api/v1/deliveries").handler(this::handleCreate);
-        router.get("/api/v1/deliveries/:deliveryId").handler(this::handleGet);
-        router.post("/api/v1/deliveries/:deliveryId/cancel").handler(this::handleCancel);
-        router.post("/api/v1/deliveries/:deliveryId/track").handler(this::handleTrack);
+        router.post("/api/v1/deliveries")
+                .blockingHandler(authorizer.requireRole("SENDER")).handler(this::handleCreate);
+        router.get("/api/v1/deliveries/:deliveryId")
+                .blockingHandler(authorizer.requireRole("SENDER")).handler(this::handleGet);
+        router.post("/api/v1/deliveries/:deliveryId/cancel")
+                .blockingHandler(authorizer.requireRole("SENDER")).handler(this::handleCancel);
+        router.post("/api/v1/deliveries/:deliveryId/track")
+                .blockingHandler(authorizer.requireRole("SENDER")).handler(this::handleTrack);
 
         final var server = vertx.createHttpServer();
         server.webSocketHandler(this::handleTrackingSocket);
@@ -75,9 +83,10 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
 
     private void handleCreate(final RoutingContext ctx) {
         final JsonObject body = ctx.body().asJsonObject();
+        final String senderId = ctx.get(RequestAuthorizer.CALLER_ACCOUNT_ID);
         final CreateDeliveryCommand cmd;
         try {
-            cmd = toCommand(body);
+            cmd = toCommand(body, senderId);
         } catch (final BadRequestException | IllegalArgumentException e) {
             error(ctx, 400, e.getMessage());
             return;
@@ -108,7 +117,7 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
 
     private void handleGet(final RoutingContext ctx) {
         final String deliveryId = ctx.pathParam("deliveryId");
-        final String senderId = ctx.queryParams().get("senderId");
+        final String senderId = ctx.get(RequestAuthorizer.CALLER_ACCOUNT_ID);
         deliveryService.getDelivery(deliveryId, senderId).ifPresentOrElse(
                 view -> ctx.response().setStatusCode(200)
                         .putHeader("Content-Type", "application/json")
@@ -118,8 +127,7 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
 
     private void handleCancel(final RoutingContext ctx) {
         final String deliveryId = ctx.pathParam("deliveryId");
-        final JsonObject body = ctx.body().asJsonObject();
-        final String senderId = body == null ? null : body.getString("senderId");
+        final String senderId = ctx.get(RequestAuthorizer.CALLER_ACCOUNT_ID);
         commandExecutor.<Void>executeBlocking(() -> {
                     deliveryService.cancelDelivery(deliveryId, senderId);
                     return null;
@@ -132,6 +140,8 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
                 .onFailure(e -> {
                     if (e instanceof CannotCancelInFlightException) {
                         error(ctx, 409, e.getMessage());
+                    } else if (e instanceof ForbiddenDeliveryAccessException) {
+                        error(ctx, 403, e.getMessage());
                     } else if (e instanceof DeliveryNotFoundException) {
                         error(ctx, 404, e.getMessage());
                     } else if (e instanceof IllegalStateException) {
@@ -144,8 +154,7 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
 
     private void handleTrack(final RoutingContext ctx) {
         final String deliveryId = ctx.pathParam("deliveryId");
-        final JsonObject body = ctx.body().asJsonObject();
-        final String senderId = body == null ? null : body.getString("senderId");
+        final String senderId = ctx.get(RequestAuthorizer.CALLER_ACCOUNT_ID);
         try {
             final TrackingHandle handle = deliveryService.startTracking(deliveryId, senderId);
             final String wsUrl = "ws://localhost:" + port + "/api/v1/track/" + handle.trackingSessionId();
@@ -200,11 +209,10 @@ public class DeliveryServiceController extends AbstractVerticle implements Input
         return DeliveryStatus.DELIVERED.name().equals(status);
     }
 
-    private CreateDeliveryCommand toCommand(final JsonObject body) {
+    private CreateDeliveryCommand toCommand(final JsonObject body, final String senderId) {
         if (body == null) {
             throw new BadRequestException("Missing request body");
         }
-        final String senderId = body.getString("senderId");
         final double weight = body.getDouble("weight", 0.0);
         final JsonObject start = body.getJsonObject("startingPlace");
         final JsonObject dest = body.getJsonObject("destinationPlace");
