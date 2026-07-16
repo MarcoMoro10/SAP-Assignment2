@@ -2,6 +2,7 @@ package it.unibo.sap.gateway.infrastructure;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.json.JsonObject;
@@ -16,6 +17,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
+
+    private static final String SESSION_ID_HEADER = "X-Session-Id";
 
     private final WebClient webClient;
     private final String host;
@@ -54,29 +57,28 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
     }
 
     @Override
-    public JsonObject createDelivery(final JsonObject request) {
+    public JsonObject createDelivery(final JsonObject request, final String sessionId) {
         return blocking(
-                webClient.post(port, host, "/api/v1/deliveries"),
+                withSession(webClient.post(port, host, "/api/v1/deliveries"), sessionId),
                 request,
                 resp -> resp.bodyAsJsonObject().put("_statusCode", resp.statusCode()));
     }
 
     @Override
-    public JsonObject cancelDelivery(final String deliveryId, final String senderId) {
+    public JsonObject cancelDelivery(final String deliveryId, final String sessionId) {
         return blocking(
-                webClient.post(port, host, "/api/v1/deliveries/" + deliveryId + "/cancel"),
-                new JsonObject().put("senderId", senderId),
+                withSession(webClient.post(port, host, "/api/v1/deliveries/" + deliveryId + "/cancel"), sessionId),
+                new JsonObject(),
                 resp -> resp.bodyAsJsonObject().put("_statusCode", resp.statusCode()));
     }
 
     @Override
-    public Optional<JsonObject> getDelivery(final String deliveryId, final String senderId) {
+    public Optional<JsonObject> getDelivery(final String deliveryId, final String sessionId) {
         if (failFast()) {
             return Optional.empty();
         }
         final CompletableFuture<Optional<JsonObject>> future = new CompletableFuture<>();
-        webClient.get(port, host, "/api/v1/deliveries/" + deliveryId)
-                .addQueryParam("senderId", senderId)
+        withSession(webClient.get(port, host, "/api/v1/deliveries/" + deliveryId), sessionId)
                 .timeout(REQUEST_TIMEOUT_MS)
                 .send(ar -> {
                     if (ar.succeeded()) {
@@ -100,29 +102,54 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
     }
 
     @Override
-    public JsonObject trackDelivery(final String deliveryId, final String senderId) {
+    public JsonObject trackDelivery(final String deliveryId, final String sessionId) {
         return blocking(
-                webClient.post(port, host, "/api/v1/deliveries/" + deliveryId + "/track"),
-                new JsonObject().put("senderId", senderId),
+                withSession(webClient.post(port, host, "/api/v1/deliveries/" + deliveryId + "/track"), sessionId),
+                new JsonObject(),
                 resp -> resp.bodyAsJsonObject().put("_statusCode", resp.statusCode()));
     }
 
     @Override
-    public JsonObject viewFleet() {
+    public JsonObject viewFleet(final String sessionId) {
         return blocking(
-                webClient.get(fleetPort, host, "/api/v1/admin/fleet"),
-                resp -> new JsonObject().put("fleet", resp.bodyAsJsonArray()));
+                withSession(webClient.get(fleetPort, host, "/api/v1/admin/fleet"), sessionId),
+                resp -> arrayOrError(resp, "fleet"));
     }
 
     @Override
-    public JsonObject viewScheduling(final String droneId) {
+    public JsonObject viewScheduling(final String droneId, final String sessionId) {
         String path = "/api/v1/admin/scheduling";
         if (droneId != null && !droneId.isBlank()) {
             path += "?droneId=" + droneId;
         }
         return blocking(
-                webClient.get(fleetPort, host, path),
-                resp -> new JsonObject().put("scheduling", resp.bodyAsJsonArray()));
+                withSession(webClient.get(fleetPort, host, path), sessionId),
+                resp -> arrayOrError(resp, "scheduling"));
+    }
+
+    private <T> HttpRequest<T> withSession(final HttpRequest<T> request, final String sessionId) {
+        return request.putHeader(SESSION_ID_HEADER, sessionId);
+    }
+
+    private JsonObject arrayOrError(final HttpResponse<Buffer> resp, final String key) {
+        if (resp.statusCode() == 200) {
+            return new JsonObject().put(key, resp.bodyAsJsonArray());
+        }
+        return new JsonObject()
+                .put("_statusCode", resp.statusCode())
+                .put("error", errorMessage(resp));
+    }
+
+    private static String errorMessage(final HttpResponse<Buffer> resp) {
+        try {
+            final JsonObject body = resp.bodyAsJsonObject();
+            if (body != null && body.getString("error") != null) {
+                return body.getString("error");
+            }
+        } catch (final RuntimeException ignored) {
+            // fall through to a generic message
+        }
+        return "delivery-service returned status " + resp.statusCode();
     }
 
     private static final long CLIENT_CLOSE_GRACE_MS = 200;

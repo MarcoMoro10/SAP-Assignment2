@@ -7,15 +7,15 @@ import java.util.Optional;
 
 public interface DeliveryService extends OutputPort {
 
-    JsonObject createDelivery(JsonObject request);
+    JsonObject createDelivery(JsonObject request, String sessionId);
 
-    JsonObject cancelDelivery(String deliveryId, String senderId);
+    JsonObject cancelDelivery(String deliveryId, String sessionId);
 
-    Optional<JsonObject> getDelivery(String deliveryId, String senderId);
+    Optional<JsonObject> getDelivery(String deliveryId, String sessionId);
 
-    JsonObject trackDelivery(String deliveryId, String senderId);
+    JsonObject trackDelivery(String deliveryId, String sessionId);
 
-    JsonObject viewFleet();
+    JsonObject viewFleet(String sessionId);
 
-    JsonObject viewScheduling(String droneId);
+    JsonObject viewScheduling(String droneId, String sessionId);
 }

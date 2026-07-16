@@ -3,9 +3,6 @@ package it.unibo.sap.gateway.infrastructure;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.client.WebClient;
 import it.unibo.sap.gateway.application.ControllerObserver;
-import it.unibo.sap.gateway.application.SessionRepository;
-import it.unibo.sap.gateway.application.SessionService;
-import it.unibo.sap.gateway.application.SessionServiceImpl;
 
 public class APIGatewayMain {
 
@@ -15,6 +12,8 @@ public class APIGatewayMain {
     static final String DEFAULT_DELIVERY_HOST = "localhost";
     static final int DEFAULT_DELIVERY_PORT = 9002;
     static final int DEFAULT_FLEET_PORT = 9003;
+    static final String DEFAULT_SESSION_HOST = "localhost";
+    static final int DEFAULT_SESSION_PORT = 9001;
     static final String DEFAULT_GATEWAY_PUBLIC_HOST = "localhost";
     static final int DEFAULT_GATEWAY_METRICS_PORT = 9401;
 
@@ -24,6 +23,8 @@ public class APIGatewayMain {
         final String deliveryHost = Env.get("DELIVERY_HOST", DEFAULT_DELIVERY_HOST);
         final int deliveryPort = Env.getInt("DELIVERY_PORT", DEFAULT_DELIVERY_PORT);
         final int fleetPort = Env.getInt("FLEET_PORT", DEFAULT_FLEET_PORT);
+        final String sessionHost = Env.get("SESSION_HOST", DEFAULT_SESSION_HOST);
+        final int sessionPort = Env.getInt("SESSION_PORT", DEFAULT_SESSION_PORT);
         final int gatewayPort = Env.getInt("GATEWAY_PORT", DEFAULT_GATEWAY_PORT);
         final String gatewayPublicHost = Env.get("GATEWAY_PUBLIC_HOST", DEFAULT_GATEWAY_PUBLIC_HOST);
         final int metricsPort = Env.getInt("GATEWAY_METRICS_PORT", DEFAULT_GATEWAY_METRICS_PORT);
@@ -40,13 +41,11 @@ public class APIGatewayMain {
                 new AccountServiceProxy(webClient, accountHost, accountPort, accountCircuitBreaker);
         final DeliveryServiceProxy deliveryServiceProxy =
                 new DeliveryServiceProxy(webClient, deliveryHost, deliveryPort, fleetPort);
-        final SessionRepository sessionRepository = new InMemorySessionRepository();
-
-        final SessionService service = new SessionServiceImpl(
-                accountServiceProxy, deliveryServiceProxy, sessionRepository);
+        final SessionServiceProxy sessionServiceProxy =
+                new SessionServiceProxy(webClient, sessionHost, sessionPort);
 
         final var controller = new APIGatewayController(
-                service, accountServiceProxy, deliveryServiceProxy, gatewayPublicHost, gatewayPort,
+                accountServiceProxy, deliveryServiceProxy, sessionServiceProxy, gatewayPublicHost, gatewayPort,
                 controllerObserver);
         vertx.deployVerticle(controller);
     }

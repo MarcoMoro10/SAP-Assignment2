@@ -3,9 +3,6 @@ package it.unibo.sap.gateway.infrastructure;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.client.WebClient;
-import it.unibo.sap.gateway.application.SessionService;
-import it.unibo.sap.gateway.application.SessionServiceImpl;
-import it.unibo.sap.gateway.support.FakeAccountService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -47,10 +44,10 @@ class PrometheusGatewayMetricsTest {
                 new AccountServiceProxy(WebClient.create(vertx), HOST, DEAD_PORT);
         final DeliveryServiceProxy deliveryProxy =
                 new DeliveryServiceProxy(WebClient.create(vertx), HOST, DEAD_PORT, DEAD_PORT);
-        final SessionService service = new SessionServiceImpl(
-                new FakeAccountService(), deliveryProxy, new InMemorySessionRepository());
+        final SessionServiceProxy sessionProxy =
+                new SessionServiceProxy(WebClient.create(vertx), HOST, DEAD_PORT);
         final var controller = new APIGatewayController(
-                service, accountProxy, deliveryProxy, HOST, GW_PORT, observer);
+                accountProxy, deliveryProxy, sessionProxy, HOST, GW_PORT, observer);
 
         final CountDownLatch latch = new CountDownLatch(1);
         vertx.deployVerticle(controller).onComplete(ar -> latch.countDown());

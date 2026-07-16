@@ -6,10 +6,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.handler.BodyHandler;
-import it.unibo.sap.gateway.application.SessionRepository;
-import it.unibo.sap.gateway.application.SessionService;
-import it.unibo.sap.gateway.application.SessionServiceImpl;
-import it.unibo.sap.gateway.support.FakeAccountService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -64,6 +60,14 @@ class TrackingRelayIntegrationTest {
     private static void startFakeDeliveryService() {
         final Router router = Router.router(vertx);
         router.route("/api/v1/*").handler(BodyHandler.create());
+        // Stand-in session-service login, so the gateway's SessionServiceProxy can coin a session.
+        router.post("/api/v1/login").handler(ctx ->
+                ctx.response().setStatusCode(200).putHeader("Content-Type", "application/json")
+                        .end(new JsonObject()
+                                .put("sessionId", "SESSION-1")
+                                .put("accountId", "acc-1")
+                                .put("role", "SENDER")
+                                .put("links", new JsonObject()).encode()));
         router.post("/api/v1/deliveries/:deliveryId/track").handler(ctx ->
                 ctx.response().setStatusCode(201).putHeader("Content-Type", "application/json")
                         .end(new JsonObject()
@@ -106,10 +110,10 @@ class TrackingRelayIntegrationTest {
                 new AccountServiceProxy(gatewayClient, HOST, DELIVERY_PORT);
         final DeliveryServiceProxy deliveryProxy =
                 new DeliveryServiceProxy(gatewayClient, HOST, DELIVERY_PORT, DELIVERY_PORT);
-        final FakeAccountService account = new FakeAccountService().withSuccessfulLogin("acc-1", "SENDER");
-        final SessionRepository sessions = new InMemorySessionRepository();
-        final SessionService service = new SessionServiceImpl(account, deliveryProxy, sessions);
-        final var controller = new APIGatewayController(service, accountProxy, deliveryProxy, HOST, GATEWAY_PORT);
+        final SessionServiceProxy sessionProxy =
+                new SessionServiceProxy(gatewayClient, HOST, DELIVERY_PORT);
+        final var controller = new APIGatewayController(
+                accountProxy, deliveryProxy, sessionProxy, HOST, GATEWAY_PORT);
 
         final CountDownLatch latch = new CountDownLatch(1);
         vertx.deployVerticle(controller).onComplete(ar -> latch.countDown());

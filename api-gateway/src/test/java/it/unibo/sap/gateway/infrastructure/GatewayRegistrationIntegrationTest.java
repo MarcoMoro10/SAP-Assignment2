@@ -5,9 +5,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.handler.BodyHandler;
-import it.unibo.sap.gateway.application.SessionService;
-import it.unibo.sap.gateway.application.SessionServiceImpl;
-import it.unibo.sap.gateway.support.FakeAccountService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -83,9 +80,10 @@ class GatewayRegistrationIntegrationTest {
                 new AccountServiceProxy(gatewayClient, HOST, ACCOUNT_STUB_PORT);
         final DeliveryServiceProxy deliveryProxy =
                 new DeliveryServiceProxy(gatewayClient, HOST, ACCOUNT_STUB_PORT, ACCOUNT_STUB_PORT);
-        final SessionService service = new SessionServiceImpl(
-                new FakeAccountService(), deliveryProxy, new InMemorySessionRepository());
-        final var controller = new APIGatewayController(service, accountProxy, deliveryProxy, HOST, GATEWAY_PORT);
+        final SessionServiceProxy sessionProxy =
+                new SessionServiceProxy(gatewayClient, HOST, ACCOUNT_STUB_PORT);
+        final var controller = new APIGatewayController(
+                accountProxy, deliveryProxy, sessionProxy, HOST, GATEWAY_PORT);
 
         final CountDownLatch latch = new CountDownLatch(1);
         vertx.deployVerticle(controller).onComplete(ar -> latch.countDown());

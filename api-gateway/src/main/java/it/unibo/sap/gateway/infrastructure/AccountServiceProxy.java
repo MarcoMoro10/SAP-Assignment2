@@ -6,7 +6,6 @@ import io.vertx.ext.web.client.WebClient;
 import it.unibo.sap.common.hexagonal.OutputAdapter;
 import it.unibo.sap.gateway.application.AccountService;
 
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public class AccountServiceProxy implements AccountService, OutputAdapter {
@@ -37,46 +36,6 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
                 .send()
                 .map(resp -> resp.statusCode() == 200)
                 .otherwise(false);
-    }
-
-    @Override
-    public Optional<JsonObject> login(final String username, final String password) {
-        if (circuitBreaker.isOpen()) {
-            attemptRecovery();
-            return Optional.empty();
-        }
-        final CompletableFuture<Optional<JsonObject>> future = new CompletableFuture<>();
-        final JsonObject body = new JsonObject()
-                .put("username", username)
-                .put("password", password);
-        webClient.post(port, host, "/api/v1/accounts/login")
-                .timeout(REQUEST_TIMEOUT_MS)
-                .sendJsonObject(body, ar -> {
-                    if (ar.failed()) {
-                        circuitBreaker.recordFailure();
-                        future.complete(Optional.empty());
-                        return;
-                    }
-                    final int statusCode = ar.result().statusCode();
-                    if (isDownstreamHealthy(statusCode)) {
-                        circuitBreaker.recordSuccess();
-                    } else {
-                        circuitBreaker.recordFailure();
-                    }
-                    if (statusCode == 200) {
-                        future.complete(Optional.of(ar.result().bodyAsJsonObject()));
-                    } else {
-                        future.complete(Optional.empty());
-                    }
-                });
-        try {
-            return future.get();
-        } catch (final InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return Optional.empty();
-        } catch (final Exception e) {
-            return Optional.empty();
-        }
     }
 
     @Override

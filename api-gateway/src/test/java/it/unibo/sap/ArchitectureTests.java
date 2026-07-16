@@ -38,7 +38,7 @@ public class ArchitectureTests {
 
         layeredArchitecture()
                 .consideringAllDependencies()
-                .layer("Domain").definedBy(DOMAIN)
+                .optionalLayer("Domain").definedBy(DOMAIN)
                 .layer("Application").definedBy(APPLICATION)
                 .layer("Infrastructure").definedBy(INFRASTRUCTURE)
                 .whereLayer("Infrastructure").mayNotBeAccessedByAnyLayer()

@@ -51,8 +51,8 @@ class DeliveryServiceProxyIntegrationTest {
         });
 
         router.get("/api/v1/deliveries/:deliveryId").handler(ctx -> {
-            final String senderId = ctx.queryParams().get("senderId");
-            if ("user-1".equals(senderId)) {
+            final String sessionId = ctx.request().getHeader("X-Session-Id");
+            if ("user-1".equals(sessionId)) {
                 ctx.response().setStatusCode(200).putHeader("Content-Type", "application/json")
                         .end(new JsonObject()
                                 .put("deliveryId", ctx.pathParam("deliveryId"))
@@ -93,7 +93,7 @@ class DeliveryServiceProxyIntegrationTest {
 
     @Test
     void createDeliveryForwardsBodyAndReturnsStatusAndPayload() {
-        final JsonObject result = proxy.createDelivery(new JsonObject().put("weight", 2.0).put("senderId", "user-1"));
+        final JsonObject result = proxy.createDelivery(new JsonObject().put("weight", 2.0), "user-1");
 
         assertEquals(201, result.getInteger("_statusCode"));
         assertEquals("DLV-1", result.getString("deliveryId"));
@@ -122,7 +122,7 @@ class DeliveryServiceProxyIntegrationTest {
 
     @Test
     void viewFleetWrapsTheDownstreamArray() {
-        final JsonObject result = proxy.viewFleet();
+        final JsonObject result = proxy.viewFleet("admin-session");
         final JsonArray fleet = result.getJsonArray("fleet");
         assertEquals(1, fleet.size());
         assertEquals("DRN-1", fleet.getJsonObject(0).getString("droneId"));
