@@ -9,6 +9,21 @@ services:
       - "9000:9000"
     restart: always
 
+  session-service:
+    build:
+      context: ./session-service
+    image: session-service
+    container_name: session-service
+    networks: [shipping_network]
+    ports:
+      - "9001:9001"
+    environment:
+      - ACCOUNT_HOST=account-service
+      - ACCOUNT_PORT=9000
+    depends_on:
+      - account-service
+    restart: always
+
   delivery-service:
     build:
       context: ./delivery-service
@@ -19,6 +34,11 @@ services:
       - "9002:9002"
       - "9003:9003"
       - "9400:9400"
+    environment:
+      - SESSION_HOST=session-service
+      - SESSION_PORT=9001
+    depends_on:
+      - session-service
 
   api-gateway:
     build:
@@ -32,9 +52,12 @@ services:
     environment:
       - ACCOUNT_HOST=account-service
       - DELIVERY_HOST=delivery-service
+      - SESSION_HOST=session-service
+      - SESSION_PORT=9001
     depends_on:
       - account-service
       - delivery-service
+      - session-service
     healthcheck:
       test: curl --fail http://api-gateway:8080/api/v1/health/live || exit 1
       interval: 1m30s

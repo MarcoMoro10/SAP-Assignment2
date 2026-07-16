@@ -27,6 +27,7 @@ public abstract class Setup {
 
     private static final String HEALTH_URL = "http://" + HOST + ":" + GATEWAY_PORT + "/api/v1/health/live";
     private static final String LOGIN_URL = "http://" + HOST + ":" + GATEWAY_PORT + "/api/v1/login";
+    private static final String REGISTER_URL = "http://" + HOST + ":" + GATEWAY_PORT + "/api/v1/accounts";
     private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(5);
     private static final long POLL_INTERVAL_MS = 2_000;
 
@@ -102,6 +103,7 @@ public abstract class Setup {
     }
 
     private static boolean accountBreakerClosedNow() {
+        registerStatus(ADMIN_USERNAME, ADMIN_PASSWORD);
         try {
             if (gatewayMetric("account_circuit_open") != 0.0) {
                 return false;
@@ -110,6 +112,19 @@ public abstract class Setup {
             return false;
         }
         return loginStatus(ADMIN_USERNAME, ADMIN_PASSWORD) == 200;
+    }
+
+    public static int registerStatus(final String username, final String password) {
+        final String body = "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
+        try {
+            return HTTP.send(HttpRequest.newBuilder(URI.create(REGISTER_URL))
+                            .timeout(Duration.ofSeconds(10))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(body))
+                            .build(), HttpResponse.BodyHandlers.discarding()).statusCode();
+        } catch (final Exception failFastOrTimeout) {
+            return -1;
+        }
     }
 
     public static int loginStatus(final String username, final String password) {
