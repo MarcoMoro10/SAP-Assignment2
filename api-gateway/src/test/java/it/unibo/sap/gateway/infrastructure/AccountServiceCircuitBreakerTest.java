@@ -115,9 +115,13 @@ class AccountServiceCircuitBreakerTest {
         assertEquals(hitsWhenOpened, registerHits.get(), "open circuit must not forward calls downstream");
 
         serviceUp = true;
+        // Keep driving registrations until the breaker is fully CLOSED (not merely out of OPEN):
+        // the async health probe can flip OPEN -> HALF_OPEN before a successful trial call closes it,
+        // so stopping at "!isOpen()" would race with the HALF_OPEN -> CLOSED transition.
         final boolean reclosed = pollUntil(() -> {
             proxy.register("user", "pwd");
-            return !breaker.isOpen() && metric("account_circuit_open") == 0.0;
+            return breaker.state() == CircuitBreaker.State.CLOSED
+                    && metric("account_circuit_open") == 0.0;
         }, 5_000);
 
         assertTrue(reclosed, "the circuit must re-close once the service is healthy again");
