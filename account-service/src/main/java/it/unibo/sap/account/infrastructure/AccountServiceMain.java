@@ -12,7 +12,10 @@ public class AccountServiceMain {
     public static void main(final String[] args) {
         final int port = Env.getInt("ACCOUNT_PORT", DEFAULT_ACCOUNT_SERVICE_PORT);
 
-        final AccountRepository repository = new FileBasedAccountRepository();
+        final String storeFile = Env.get("ACCOUNT_STORE_FILE", FileBasedAccountRepository.DEFAULT_FILE);
+        final AccountRepository repository = Env.getBoolean("ACCOUNT_RESET_STORE", false)
+                ? FileBasedAccountRepository.resetting(storeFile)
+                : new FileBasedAccountRepository(storeFile);
         AdminSeeder.seed(repository);
 
         final AccountService service = new AccountServiceImpl(repository);

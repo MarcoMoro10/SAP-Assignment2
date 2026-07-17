@@ -7,6 +7,10 @@ services:
     networks: [shipping_network]
     ports:
       - "9000:9000"
+    environment:
+      - ACCOUNT_STORE_FILE=data/accounts.json
+    volumes:
+      - account-data:/project/data
     restart: always
 
   session-service:
@@ -100,4 +104,5 @@ networks:
     driver: bridge
 
 volumes:
+  account-data:
   delivery-data:

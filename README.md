@@ -24,13 +24,21 @@ volume** Docker (`delivery-data`), così la storia degli eventi sopravvive al ri
 Al boot, dopo la ricostruzione, il servizio applica una **recovery policy** sulle consegne attive
 (vedi documentazione del delivery-service).
 
+Anche l'`account-service` è **persistente allo stesso modo**: gli account sono scritti su file
+(`FileBasedAccountRepository`, path `ACCOUNT_STORE_FILE`, default `data/accounts.json`) montato sul
+named volume `account-data`. Così, dopo un riavvio, l'utente ritrova il **proprio account con lo
+stesso `accountId`** e può accedere alle consegne persistite senza doversi ri-registrare. Le sessioni
+del `session-service` restano invece **in-memory per design** (dopo il riavvio si rifà il login e si
+ottiene una nuova `sessionId`, ma lo stesso `accountId`).
+
 | Comando | Effetto sui dati |
 |---|---|
-| `docker compose down` | Ferma tutto ma **conserva** il named volume: al prossimo `up` il delivery-service fa recovery dalla storia degli eventi. |
-| `docker compose down -v` | Rimuove i named volume: **reset totale**, sistema pulito (nessuna delivery). Usare per test puliti su Postman. |
+| `docker compose down` | Ferma tutto ma **conserva** i named volume (`account-data`, `delivery-data`): al prossimo `up` gli account sono ricaricati e il delivery-service fa recovery dalla storia degli eventi. |
+| `docker compose down -v` | Rimuove i named volume: **reset totale**, sistema pulito (nessun account, nessuna delivery). Usare per test puliti su Postman. |
 
-Override manuale (bypassa il volume, azzera lo store allo start):
+Override manuale (bypassano il volume, azzerano lo store allo start):
 
 ```bash
 DELIVERY_RESET_STORE=true docker compose up -d
+ACCOUNT_RESET_STORE=true docker compose up -d
 ```

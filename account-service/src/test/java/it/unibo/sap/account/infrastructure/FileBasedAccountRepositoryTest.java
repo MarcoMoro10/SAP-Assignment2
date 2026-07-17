@@ -38,4 +38,21 @@ class FileBasedAccountRepositoryTest {
         assertEquals(Role.SENDER, reloaded.get().getRole());
         assertTrue(reloaded.get().checkPassword("Secret#123"), "password hash must round-trip");
     }
+
+    @Test
+    void resettingStartsFromCleanFileAndIgnoresExistingAccounts() {
+        final Path file = tempDir.resolve("accounts.json");
+
+        final FileBasedAccountRepository writer = new FileBasedAccountRepository(file.toString());
+        writer.save(Account.register("marco", "Secret#123"));
+
+        // Default constructor reloads the persisted account (persistent mode)...
+        final FileBasedAccountRepository reloader = new FileBasedAccountRepository(file.toString());
+        assertTrue(reloader.findByUsername("marco").isPresent(), "default mode must reload persisted accounts");
+
+        // ...while resetting() drops the file and starts empty (ACCOUNT_RESET_STORE=true).
+        final FileBasedAccountRepository reset = FileBasedAccountRepository.resetting(file.toString());
+        assertTrue(reset.findAll().isEmpty(), "resetting store must start from a clean file");
+        assertTrue(reset.findByUsername("marco").isEmpty(), "reset store must not see previous accounts");
+    }
 }

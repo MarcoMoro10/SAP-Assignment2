@@ -20,19 +20,43 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class FileBasedAccountRepository implements AccountRepository, OutputAdapter {
 
-    private static final String DEFAULT_FILE = "data/accounts.json";
+    public static final String DEFAULT_FILE = "data/accounts.json";
 
     private final Path file;
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<String, Account> store = new ConcurrentHashMap<>();
 
     public FileBasedAccountRepository() {
-        this(DEFAULT_FILE);
+        this(DEFAULT_FILE, true);
     }
 
     public FileBasedAccountRepository(final String filePath) {
+        this(filePath, true);
+    }
+
+    public static FileBasedAccountRepository resetting() {
+        return resetting(DEFAULT_FILE);
+    }
+
+    public static FileBasedAccountRepository resetting(final String filePath) {
+        return new FileBasedAccountRepository(filePath, false);
+    }
+
+    private FileBasedAccountRepository(final String filePath, final boolean loadExisting) {
         this.file = Path.of(filePath);
-        load();
+        if (loadExisting) {
+            load();
+        } else {
+            reset();
+        }
+    }
+
+    private void reset() {
+        try {
+            Files.deleteIfExists(file);
+        } catch (final IOException e) {
+            throw new UncheckedIOException("Failed to reset accounts at " + file, e);
+        }
     }
 
     @Override
