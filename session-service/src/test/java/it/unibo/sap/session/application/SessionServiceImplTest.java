@@ -47,7 +47,6 @@ class SessionServiceImplTest {
 
     @Test
     void loginRegistersASessionCreatedEventBeforeItIsCleared() {
-        // Verify the aggregate emits the domain event by inspecting the aggregate before persistence.
         final Session freshlyCreated = Session.create("acc-1", "SENDER");
         assertEquals(1, freshlyCreated.getDomainEvents().size());
         assertTrue(freshlyCreated.getDomainEvents().get(0) instanceof SessionCreated);

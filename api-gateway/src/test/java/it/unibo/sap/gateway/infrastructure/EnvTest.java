@@ -6,8 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit test of the {@link Env} helper: with an UNSET variable it falls back to the default, so the
- * gateway keeps its current localhost hosts/ports when no env is provided (STEP 8 — service discovery
- * preparation). Uses a variable name that is guaranteed not to exist in the environment.
+ * gateway keeps its current localhost hosts/ports when no env is provided
  */
 class EnvTest {
 
