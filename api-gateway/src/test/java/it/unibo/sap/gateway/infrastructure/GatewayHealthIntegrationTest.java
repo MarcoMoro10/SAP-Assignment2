@@ -5,6 +5,9 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.client.WebClient;
+import it.unibo.sap.gateway.application.AccountService;
+import it.unibo.sap.gateway.application.DeliveryService;
+import it.unibo.sap.gateway.application.SessionService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -74,11 +77,11 @@ class GatewayHealthIntegrationTest {
 
     private static void startGateway() {
         final WebClient gatewayClient = WebClient.create(vertx);
-        final AccountServiceProxy accountProxy =
+        final AccountService accountProxy =
                 new AccountServiceProxy(gatewayClient, HOST, ACCOUNT_STUB_PORT);
-        final DeliveryServiceProxy deliveryProxy =
+        final DeliveryService deliveryProxy =
                 new DeliveryServiceProxy(gatewayClient, HOST, DELIVERY_STUB_PORT, DELIVERY_STUB_PORT);
-        final SessionServiceProxy sessionProxy =
+        final SessionService sessionProxy =
                 new SessionServiceProxy(gatewayClient, HOST, SESSION_STUB_PORT);
         final var controller = new APIGatewayController(
                 accountProxy, deliveryProxy, sessionProxy, HOST, GATEWAY_PORT);

@@ -11,7 +11,10 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import it.unibo.sap.common.hexagonal.InputAdapter;
+import it.unibo.sap.gateway.application.AccountService;
 import it.unibo.sap.gateway.application.ControllerObserver;
+import it.unibo.sap.gateway.application.DeliveryService;
+import it.unibo.sap.gateway.application.SessionService;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -19,26 +22,26 @@ public class APIGatewayController extends AbstractVerticle implements InputAdapt
 
     private static final String TRACK_PREFIX = "/api/v1/track/";
 
-    private final AccountServiceProxy accountServiceProxy;
-    private final DeliveryServiceProxy deliveryServiceProxy;
-    private final SessionServiceProxy sessionServiceProxy;
+    private final AccountService accountServiceProxy;
+    private final DeliveryService deliveryServiceProxy;
+    private final SessionService sessionServiceProxy;
     private final String publicHost;
     private final int port;
     private final ControllerObserver observer;
     private WebSocketClient webSocketClient;
 
-    public APIGatewayController(final AccountServiceProxy accountServiceProxy,
-                                final DeliveryServiceProxy deliveryServiceProxy,
-                                final SessionServiceProxy sessionServiceProxy,
+    public APIGatewayController(final AccountService accountServiceProxy,
+                                final DeliveryService deliveryServiceProxy,
+                                final SessionService sessionServiceProxy,
                                 final String publicHost,
                                 final int port) {
         this(accountServiceProxy, deliveryServiceProxy, sessionServiceProxy, publicHost, port,
                 ControllerObserver.NO_OP);
     }
 
-    public APIGatewayController(final AccountServiceProxy accountServiceProxy,
-                                final DeliveryServiceProxy deliveryServiceProxy,
-                                final SessionServiceProxy sessionServiceProxy,
+    public APIGatewayController(final AccountService accountServiceProxy,
+                                final DeliveryService deliveryServiceProxy,
+                                final SessionService sessionServiceProxy,
                                 final String publicHost,
                                 final int port,
                                 final ControllerObserver observer) {

@@ -30,6 +30,7 @@ public class AccountServiceProxy implements AccountService, OutputAdapter {
         this.circuitBreaker = circuitBreaker;
     }
 
+    @Override
     public Future<Boolean> pingHealth() {
         return webClient.get(port, host, "/api/v1/health")
                 .timeout(HEALTH_TIMEOUT_MS)

@@ -58,6 +58,16 @@ public class ArchitectureTests {
         adaptersInInfrastructure(OutputAdapter.class);
     }
 
+    @Test
+    public void outputAdaptersImplementAnOutputPort() {
+        classes().that()
+                .areAssignableTo(OutputAdapter.class)
+                .and().areNotInterfaces()
+                .and().resideOutsideOfPackage("..common..")
+                .should().beAssignableTo(OutputPort.class)
+                .check(classes);
+    }
+
     private void portsInApplicationOrDomain(final Class<?> marker) {
         classes().that()
                 .areAssignableTo(marker)

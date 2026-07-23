@@ -6,6 +6,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.handler.BodyHandler;
+import it.unibo.sap.gateway.application.AccountService;
+import it.unibo.sap.gateway.application.DeliveryService;
+import it.unibo.sap.gateway.application.SessionService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -106,11 +109,11 @@ class TrackingRelayIntegrationTest {
 
     private static void startGateway() {
         final WebClient gatewayClient = WebClient.create(vertx);
-        final AccountServiceProxy accountProxy =
+        final AccountService accountProxy =
                 new AccountServiceProxy(gatewayClient, HOST, DELIVERY_PORT);
-        final DeliveryServiceProxy deliveryProxy =
+        final DeliveryService deliveryProxy =
                 new DeliveryServiceProxy(gatewayClient, HOST, DELIVERY_PORT, DELIVERY_PORT);
-        final SessionServiceProxy sessionProxy =
+        final SessionService sessionProxy =
                 new SessionServiceProxy(gatewayClient, HOST, DELIVERY_PORT);
         final var controller = new APIGatewayController(
                 accountProxy, deliveryProxy, sessionProxy, HOST, GATEWAY_PORT);

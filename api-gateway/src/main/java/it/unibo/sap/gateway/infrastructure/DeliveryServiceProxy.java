@@ -48,6 +48,7 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
         this.circuitBreaker = circuitBreaker;
     }
 
+    @Override
     public Future<Boolean> pingHealth() {
         return webClient.get(port, host, "/api/v1/health")
                 .timeout(HEALTH_TIMEOUT_MS)
@@ -154,6 +155,7 @@ public class DeliveryServiceProxy implements DeliveryService, OutputAdapter {
 
     private static final long CLIENT_CLOSE_GRACE_MS = 200;
 
+    @Override
     public void openTrackingRelay(final Vertx vertx,
                                   final WebSocketClient wsClient,
                                   final ServerWebSocket clientSocket,
